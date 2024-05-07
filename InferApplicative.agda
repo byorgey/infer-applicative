@@ -282,16 +282,31 @@ module Infer (B : Set) (DecB : Decidable {A = B} _≡_) (C : Set) (CTy : C → T
   ◃→<: (ap σ◃τ) = tr ap (◃→<: σ◃τ)
   ◃→<: (arr σ◃τ₁ τ₁◃τ) = arr (◃→<: σ◃τ₁) (◃→<: τ₁◃τ)
 
-  -- Now show that transitivity is admissible for the ◃ relation.
-  ◃-trans : {σ τ υ : Type B} → σ ◃ τ → τ ◃ υ → σ ◃ υ
-  ◃-trans σ◃τ τ◃υ = {!!}
+  -- Harder direction: if σ <: τ then σ ◃ τ.  First, show that
+  -- transitivity is admissible for the ◃ relation.  Need to prove it
+  -- by mutual induction with some other lemmas.
 
-  -- Harder direction: if σ <: τ then σ ◃ τ.  All the cases are easy
-  -- except for transitivity... we have to somehow show that
-  -- transitivity has been "baked into" the ◃ relation.
+  ◃-trans : {σ τ υ : Type B} → σ ◃ τ → τ ◃ υ → σ ◃ υ
+  ◃-trans-□ : {σ τ υ : Type B} → σ ◃ τ → □ τ ◃ υ → □ σ ◃ υ
+
+  -- ◃-trans-□ σ◃τ rfl = box σ◃τ
+  -- ◃-trans-□ σ◃τ (box τ◃υ₁) = box (◃-trans σ◃τ τ◃υ₁ )
+  -- ◃-trans-□ σ◃τ₁ (pureR □τ₁◃τ) = pureR (◃-trans-□ σ◃τ₁ □τ₁◃τ)
+  -- ◃-trans-□ σ◃τ (pureL □□τ◃υ) = ◃-trans-□ (pureR σ◃τ) □□τ◃υ
+  -- ◃-trans-□ σ◃σ₁⇒σ₂ (ap □σ₁⇒□σ₂◃υ) = ◃-trans {!!} □σ₁⇒□σ₂◃υ
+
+  ◃-trans rfl τ◃υ = τ◃υ
+  ◃-trans (box σ◃τ) □τ◃υ = {!!} -- ◃-trans-□ σ◃τ □τ◃υ
+  ◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) τ₁⇒τ₂◃υ = {!!}
+  ◃-trans (pureR σ◃τ) τ◃υ = ◃-trans σ◃τ (pureL τ◃υ)
+  ◃-trans (pureL σ◃τ) τ◃υ = pureL (◃-trans σ◃τ τ◃υ)
+  ◃-trans (ap σ◃τ) τ◃υ = ap (◃-trans σ◃τ τ◃υ)
+
+  -- Now show that if σ <: τ then σ ◃ τ.  All the cases are immediate
+  -- except for transitivity, for which we use the previous lemma.
   <:→◃ : {σ τ : Type B} → σ <: τ → σ ◃ τ
   <:→◃ rfl = rfl
-  <:→◃ (tr σ<:τ₁ τ₁<:τ) = {!!}
+  <:→◃ (tr σ<:τ₁ τ₁<:τ) = ◃-trans (<:→◃ σ<:τ₁) (<:→◃ τ₁<:τ)
   <:→◃ (arr τ₁<:σ₁ σ₂<:τ₂) = arr (<:→◃ τ₁<:σ₁) (<:→◃ σ₂<:τ₂)
   <:→◃ (box σ<:τ) = box (<:→◃ σ<:τ)
   <:→◃ pure = pureR rfl
