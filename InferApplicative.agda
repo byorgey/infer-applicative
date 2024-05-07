@@ -9,6 +9,7 @@ open import Relation.Nullary.Decidable
 open import Data.Empty
 open import Relation.Binary using (Decidable)
 open import Relation.Binary.PropositionalEquality
+open import Relation.Binary.HeterogeneousEquality using (_≅_ ; refl) renaming (cong₂ to ≅cong₂)
 
 variable
   n : ℕ
@@ -128,6 +129,10 @@ module Infer (B : Set) (DecB : Decidable {A = B} _≡_) (C : Set) (CTy : C → T
   ¬□<:b □τ<:b with <:B-inv □τ<:b
   ... | ()
 
+  ¬⇒<:B : {σ τ : Type B} {b : B} → ¬ (σ ⇒ τ <: base b)
+  ¬⇒<:B σ⇒τ<:b with <:B-inv σ⇒τ<:b
+  ... | ()
+
   □^_∙_ : ℕ → Type B → Type B
   □^ zero ∙ τ = τ
   □^ suc n ∙ τ = □ (□^ n ∙ τ)
@@ -137,6 +142,8 @@ module Infer (B : Set) (DecB : Decidable {A = B} _≡_) (C : Set) (CTy : C → T
   data LiftedBase (b : B) : Type B → Set where
     IsBase : LiftedBase b (base b)
     IsBox : {τ : Type B} → LiftedBase b τ → LiftedBase b (□ τ)
+
+  -- Can we get rid of LiftedBase --- is it just a special case of BaseTree etc.?
 
   LB⇒□^ : {b : B} {τ : Type B} → LiftedBase b τ → Σ[ n ∈ ℕ ] τ ≡ □^ n ∙ base b
   LB⇒□^ IsBase = zero , refl
@@ -168,67 +175,142 @@ module Infer (B : Set) (DecB : Decidable {A = B} _≡_) (C : Set) (CTy : C → T
   ¬B<:⇒ = ¬LB<:⇒ IsBase
 
   -- Next order of business: characterize subtyping for functions just like
-  --   I did for base types.  Come up with something like "LiftedFun"...
+  --   I did for base types.
 
-  data BaseTree : Set where
-    leaf : B → BaseTree
-    node : BaseTree → BaseTree → BaseTree
+  data TyShape : Set where
+    base : B → TyShape
+    _⇒_ : TyShape → TyShape → TyShape
 
-  data BoxTree : BaseTree → Set where
-    leaf : (b : B) → BoxTree (leaf b)
-    node : {l : BaseTree} → BoxTree l → {r : BaseTree} → BoxTree r → BoxTree (node l r)
-    box : {t : BaseTree} → BoxTree t → BoxTree t
+  -- A ShapedTy is a type, but indexed by its shape.  Not sure whether we really need this.
+  data ShapedTy : TyShape → Set where
+    base : (b : B) → ShapedTy (base b)
+    _⇒_ : {l : TyShape} → ShapedTy l → {r : TyShape} → ShapedTy r → ShapedTy (l ⇒ r)
+    □_ : {t : TyShape} → ShapedTy t → ShapedTy t
 
-  ⟦_⟧ : {t : BaseTree} → BoxTree t → Type B
-  ⟦ leaf b ⟧ = base b
-  ⟦ node l r ⟧ = ⟦ l ⟧ ⇒ ⟦ r ⟧
-  ⟦ box t ⟧ = □ ⟦ t ⟧
+  ⟦_⟧ : {t : TyShape} → ShapedTy t → Type B
+  ⟦ base b ⟧ = base b
+  ⟦ l ⇒ r ⟧ = ⟦ l ⟧ ⇒ ⟦ r ⟧
+  ⟦ □ t ⟧ = □ ⟦ t ⟧
 
-  ⟨_⟩ : Type B → BaseTree
-  ⟨ base b ⟩ = leaf b
-  ⟨ σ ⇒ τ ⟩ = node ⟨ σ ⟩ ⟨ τ ⟩
+  ⟨_⟩ : Type B → TyShape
+  ⟨ base b ⟩ = base b
+  ⟨ σ ⇒ τ ⟩ = ⟨ σ ⟩ ⇒ ⟨ τ ⟩
   ⟨ □ τ ⟩ = ⟨ τ ⟩
 
-  ⟪_⟫ : (τ : Type B) → BoxTree ⟨ τ ⟩
-  ⟪ base b ⟫ = leaf b
-  ⟪ σ ⇒ τ ⟫ = node ⟪ σ ⟫ ⟪ τ ⟫
-  ⟪ □ τ ⟫ = box ⟪ τ ⟫
+  ⟪_⟫ : (τ : Type B) → ShapedTy ⟨ τ ⟩
+  ⟪ base b ⟫ = base b
+  ⟪ σ ⇒ τ ⟫ = ⟪ σ ⟫ ⇒ ⟪ τ ⟫
+  ⟪ □ τ ⟫ = □ ⟪ τ ⟫
 
-  -- completeness?
   _≡⟦⟪⟫⟧ : (τ : Type B) → τ ≡ ⟦ ⟪ τ ⟫ ⟧
   base b ≡⟦⟪⟫⟧  = refl
   (σ ⇒ τ) ≡⟦⟪⟫⟧  = cong₂ _⇒_ (σ ≡⟦⟪⟫⟧) (τ ≡⟦⟪⟫⟧)
   (□ τ) ≡⟦⟪⟫⟧ = cong □_ (τ ≡⟦⟪⟫⟧)
 
-  -- Now come up with a relation on BoxTrees that characterizes
-  -- subtyping?
+  _≡⟨⟦⟧⟩ : {s : TyShape} → (t : ShapedTy s) → s ≡ ⟨ ⟦ t ⟧ ⟩
+  base b ≡⟨⟦⟧⟩ = refl
+  (l ⇒ r) ≡⟨⟦⟧⟩ = cong₂ _⇒_ (l ≡⟨⟦⟧⟩) (r ≡⟨⟦⟧⟩)
+  □ t ≡⟨⟦⟧⟩ = t ≡⟨⟦⟧⟩
 
+  -- soundness?  Not sure how to express this so it typechecks.  Tried using heterogeneous equality
+  -- but not yet able to figure out how to make the node case go through.
 
-  -- Theorem: if σ <: τ, then σ and τ have the same underlying BaseTree.
+  -- _≅⟪⟦⟧⟫ : {s : TyShape} → (t : ShapedTy s) → t ≅ ⟪ ⟦ t ⟧ ⟫
+  -- base b ≅⟪⟦⟧⟫ = refl
+  -- _≅⟪⟦⟧⟫ {node lt rt} (node l r) with l ≡⟨⟦⟧⟩
+  -- ... | eq = {!!}
+  -- box t ≅⟪⟦⟧⟫ = {!!}
+
+  -- Theorem: if σ <: τ, then σ and τ have the same underlying TyShape.
 
   <:→⟨⟩ : {σ τ : Type B} → σ <: τ → ⟨ σ ⟩ ≡ ⟨ τ ⟩
   <:→⟨⟩ rfl = refl
   <:→⟨⟩ (tr σ<:τ₁ τ₁<:τ) = trans (<:→⟨⟩ σ<:τ₁) (<:→⟨⟩ τ₁<:τ)
-  <:→⟨⟩ (arr τ₁<:σ₁ σ₂<:τ₂) = cong₂ node (sym (<:→⟨⟩ τ₁<:σ₁)) (<:→⟨⟩ σ₂<:τ₂)
+  <:→⟨⟩ (arr τ₁<:σ₁ σ₂<:τ₂) = cong₂ _⇒_ (sym (<:→⟨⟩ τ₁<:σ₁)) (<:→⟨⟩ σ₂<:τ₂)
   <:→⟨⟩ (box σ<:τ) = <:→⟨⟩ σ<:τ
   <:→⟨⟩ pure = refl
   <:→⟨⟩ ap = refl
+
+  -- A transitivity-free relation on ShapedTys that characterizes
+  -- subtyping.
+  -- Do we really need shapedtys here?  Could we just get away with normal types?
+
+  -- infix 1 _◃_
+
+  -- data _◃_ : {s : TyShape} → ShapedTy s → ShapedTy s → Set where
+  --   rfl : {s : TyShape} {τ : ShapedTy s} → τ ◃ τ
+  --   box : {s : TyShape} {σ τ : ShapedTy s} → (σ ◃ τ) → □ σ ◃ □ τ
+  --   pureR : {s : TyShape} {σ τ : ShapedTy s} → (σ ◃ τ) → σ ◃ □ τ
+  --   pureL : {s : TyShape} {σ τ : ShapedTy s} → (□ σ ◃ τ) → σ ◃ τ
+  --   ap : {l r : TyShape} {σ₁ : ShapedTy l} {σ₂ : ShapedTy r} {τ : ShapedTy (l ⇒ r)}
+  --      → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (□ (σ₁ ⇒ σ₂) ◃ τ)
+  --   arr : {l r : TyShape} {σ₁ τ₁ : ShapedTy l} {σ₂ τ₂ : ShapedTy r}
+  --      → (τ₁ ◃ σ₁) → (σ₂ ◃ τ₂) → (σ₁ ⇒ σ₂ ◃ τ₁ ⇒ τ₂)
+
+  -- Version of transitivity-free subtyping relation on normal types
+  -- rather than ShapedTys.  I had to work very, very hard to come up
+  -- with a correct definition; kind of obvious in retrospect.  The
+  -- rfl, box, and arr rules just correspond to subtyping rules.  The
+  -- pureR, pureL, and ap rules each represent a use of transitivity +
+  -- a corresponding subtyping rule to "chip away" at one end of the
+  -- proof or the other, leaving some remaining steps to establish.
+  --
+  -- Building an actual proof looks like first clearing away matching
+  -- or RHS boxes with box and pureR, then correctly guessing how many
+  -- times we need to use pureL to add boxes on the LHS; then using ap
+  -- to push the boxes inwards and then arr to recurse.
+
+  infix 1 _◃_
+
+  data _◃_ : Type B → Type B → Set where
+    rfl : {τ : Type B} → τ ◃ τ
+    box : {σ τ : Type B} → (σ ◃ τ) → □ σ ◃ □ τ
+    arr : {σ₁ σ₂ τ₁ τ₂ : Type B} → (τ₁ ◃ σ₁) → (σ₂ ◃ τ₂) → (σ₁ ⇒ σ₂ ◃ τ₁ ⇒ τ₂)
+    pureR : {σ τ : Type B} → (σ ◃ τ) → σ ◃ □ τ
+    pureL : {σ τ : Type B} → (□ σ ◃ τ) → σ ◃ τ
+    ap : {σ₁ σ₂ τ : Type B} → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (□ (σ₁ ⇒ σ₂) ◃ τ)
+
+  -- Let's prove that ◃ actually completely characterizes (i.e. is
+  -- logically equivalent to) subtyping.
+
+  -- One direction: if σ ◃ τ then σ <: τ.
+  ◃→<: : {σ τ : Type B} → σ ◃ τ → σ <: τ
+  ◃→<: rfl = rfl
+  ◃→<: (box σ◃τ) = box (◃→<: σ◃τ)
+  ◃→<: (pureR σ◃τ) = tr (◃→<: σ◃τ) pure
+  ◃→<: (pureL σ◃τ) = tr pure (◃→<: σ◃τ)
+  ◃→<: (ap σ◃τ) = tr ap (◃→<: σ◃τ)
+  ◃→<: (arr σ◃τ₁ τ₁◃τ) = arr (◃→<: σ◃τ₁) (◃→<: τ₁◃τ)
+
+  -- Now show that transitivity is admissible for the ◃ relation.
+  ◃-trans : {σ τ υ : Type B} → σ ◃ τ → τ ◃ υ → σ ◃ υ
+  ◃-trans σ◃τ τ◃υ = {!!}
+
+  -- Harder direction: if σ <: τ then σ ◃ τ.  All the cases are easy
+  -- except for transitivity... we have to somehow show that
+  -- transitivity has been "baked into" the ◃ relation.
+  <:→◃ : {σ τ : Type B} → σ <: τ → σ ◃ τ
+  <:→◃ rfl = rfl
+  <:→◃ (tr σ<:τ₁ τ₁<:τ) = {!!}
+  <:→◃ (arr τ₁<:σ₁ σ₂<:τ₂) = arr (<:→◃ τ₁<:σ₁) (<:→◃ σ₂<:τ₂)
+  <:→◃ (box σ<:τ) = box (<:→◃ σ<:τ)
+  <:→◃ pure = pureR rfl
+  <:→◃ ap = ap rfl
 
   -- ⇒<:□-inv : {τ₁ τ₂ τ : Type B} → (τ₁ ⇒ τ₂ <: □ τ) → (τ₁ ⇒ τ₂ <: τ)
   -- ⇒<:□-inv (tr τ₁⇒τ₂<:τ₃ τ₃<:□τ) = {!!}
   -- ⇒<:□-inv pure = rfl
 
-  <:-□-inv : {σ τ : Type B} → ¬(Σ[ σ′ ∈ Type B ] σ ≡ □ σ′) → (σ <: □ τ) → (σ <: τ)
+  -- <:-□-inv : {σ τ : Type B} → ¬(Σ[ σ′ ∈ Type B ] σ ≡ □ σ′) → (σ <: □ τ) → (σ <: τ)
+  -- <:-□-inv {τ = τ} notbox rfl = contradiction (τ , refl) notbox
+  -- <:-□-inv notbox (tr {τ = base b} σ<:b b<:□τ) with <:B-inv σ<:b
+  -- ... | refl = {!!}
+  -- <:-□-inv notbox (tr {τ = τ₁ ⇒ τ₂} σ<:τ₁ τ₁<:□τ) = {!!}
+  -- <:-□-inv notbox (tr {τ = □ τ₁} σ<:τ₁ τ₁<:□τ) = {!!}
+  -- <:-□-inv notbox (box {σ = σ₁} σ<:τ) = contradiction (σ₁ , refl) notbox
+  -- <:-□-inv notbox pure = rfl
+
   □-<:-inv : {σ τ : Type B} → (□ σ <: □ τ) → (σ <: τ)
-
-  <:-□-inv {τ = τ} notbox rfl = contradiction (τ , refl) notbox
-  <:-□-inv notbox (tr {τ = base b} σ<:b b<:□τ) with <:B-inv σ<:b
-  ... | refl = {!!}
-  <:-□-inv notbox (tr {τ = τ₁ ⇒ τ₂} σ<:τ₁ τ₁<:□τ) = {!!}
-  <:-□-inv notbox (tr {τ = □ τ₁} σ<:τ₁ τ₁<:□τ) = {!!}
-  <:-□-inv notbox (box {σ = σ₁} σ<:τ) = contradiction (σ₁ , refl) notbox
-  <:-□-inv notbox pure = rfl
-
   □-<:-inv rfl = rfl
   □-<:-inv (tr {τ = base b} □σ<:b b<:□τ) with <:B-inv □σ<:b
   ... | ()
@@ -236,10 +318,6 @@ module Infer (B : Set) (DecB : Decidable {A = B} _≡_) (C : Set) (CTy : C → T
   □-<:-inv (tr {τ = □ τ₁} □σ<:□τ₁ □τ₁<:□τ) = tr (□-<:-inv □σ<:□τ₁) (□-<:-inv □τ₁<:□τ)
   □-<:-inv (box prf) = prf
   □-<:-inv pure = pure
-
-  ⇒-¬<:-B : {σ τ : Type B} {b : B} → ¬ (σ ⇒ τ <: base b)
-
-  ⇒-¬<:-B (tr σ⇒τ<:b σ⇒τ<:b₁) = {!!}
 
   --------------------------------------------------
   -- Subtyping is decidable
@@ -252,7 +330,7 @@ module Infer (B : Set) (DecB : Decidable {A = B} _≡_) (C : Set) (CTy : C → T
   <:-Dec (base b) (□ τ) with <:-Dec (base b) τ
   ... | no ¬b<:τ = no (λ b<:□τ → ¬b<:τ (B<:□-inv b<:□τ))
   ... | yes b<:τ = yes (tr b<:τ pure)
-  <:-Dec (_ ⇒ _) (base _) = no ⇒-¬<:-B
+  <:-Dec (_ ⇒ _) (base _) = no ¬⇒<:B
   <:-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) = {!!}
   <:-Dec (σ ⇒ σ₁) (□ τ) = {!!}
   <:-Dec (□ _) (base _) = no ¬□<:b
