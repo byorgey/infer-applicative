@@ -170,12 +170,49 @@ module Infer (B : Set) (DecB : Decidable {A = B} _≡_) (C : Set) (CTy : C → T
   -- Next order of business: characterize subtyping for functions just like
   --   I did for base types.  Come up with something like "LiftedFun"...
 
-  -- data LiftedFun (σ τ : Type B) : Type B → Set where
-  --   IsFun : LiftedFun σ τ (σ ⇒ τ)
-  --   IsBoxR : LiftedFun LiftedFun σ τ (σ ⇒ □ τ)
-  --   IsAp : LiftedFun σ τ (□ σ ⇒ □ τ)
+  data BaseTree : Set where
+    leaf : B → BaseTree
+    node : BaseTree → BaseTree → BaseTree
 
-  --  F<:LF : {σ τ υ : Type B} → LiftedFun σ τ υ → (σ ⇒ τ) <: υ
+  data BoxTree : BaseTree → Set where
+    leaf : (b : B) → BoxTree (leaf b)
+    node : {l : BaseTree} → BoxTree l → {r : BaseTree} → BoxTree r → BoxTree (node l r)
+    box : {t : BaseTree} → BoxTree t → BoxTree t
+
+  ⟦_⟧ : {t : BaseTree} → BoxTree t → Type B
+  ⟦ leaf b ⟧ = base b
+  ⟦ node l r ⟧ = ⟦ l ⟧ ⇒ ⟦ r ⟧
+  ⟦ box t ⟧ = □ ⟦ t ⟧
+
+  ⟨_⟩ : Type B → BaseTree
+  ⟨ base b ⟩ = leaf b
+  ⟨ σ ⇒ τ ⟩ = node ⟨ σ ⟩ ⟨ τ ⟩
+  ⟨ □ τ ⟩ = ⟨ τ ⟩
+
+  ⟪_⟫ : (τ : Type B) → BoxTree ⟨ τ ⟩
+  ⟪ base b ⟫ = leaf b
+  ⟪ σ ⇒ τ ⟫ = node ⟪ σ ⟫ ⟪ τ ⟫
+  ⟪ □ τ ⟫ = box ⟪ τ ⟫
+
+  -- completeness?
+  _≡⟦⟪⟫⟧ : (τ : Type B) → τ ≡ ⟦ ⟪ τ ⟫ ⟧
+  base b ≡⟦⟪⟫⟧  = refl
+  (σ ⇒ τ) ≡⟦⟪⟫⟧  = cong₂ _⇒_ (σ ≡⟦⟪⟫⟧) (τ ≡⟦⟪⟫⟧)
+  (□ τ) ≡⟦⟪⟫⟧ = cong □_ (τ ≡⟦⟪⟫⟧)
+
+  -- Now come up with a relation on BoxTrees that characterizes
+  -- subtyping?
+
+
+  -- Theorem: if σ <: τ, then σ and τ have the same underlying BaseTree.
+
+  <:→⟨⟩ : {σ τ : Type B} → σ <: τ → ⟨ σ ⟩ ≡ ⟨ τ ⟩
+  <:→⟨⟩ rfl = refl
+  <:→⟨⟩ (tr σ<:τ₁ τ₁<:τ) = trans (<:→⟨⟩ σ<:τ₁) (<:→⟨⟩ τ₁<:τ)
+  <:→⟨⟩ (arr τ₁<:σ₁ σ₂<:τ₂) = cong₂ node (sym (<:→⟨⟩ τ₁<:σ₁)) (<:→⟨⟩ σ₂<:τ₂)
+  <:→⟨⟩ (box σ<:τ) = <:→⟨⟩ σ<:τ
+  <:→⟨⟩ pure = refl
+  <:→⟨⟩ ap = refl
 
   -- ⇒<:□-inv : {τ₁ τ₂ τ : Type B} → (τ₁ ⇒ τ₂ <: □ τ) → (τ₁ ⇒ τ₂ <: τ)
   -- ⇒<:□-inv (tr τ₁⇒τ₂<:τ₃ τ₃<:□τ) = {!!}
