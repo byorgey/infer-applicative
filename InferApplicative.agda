@@ -97,6 +97,7 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
   -}
 
   -- Should work the other way around, though...
+
   -- Argh, no, this is also false because of AP!
   {-
   ⇒<:⇒ : {σ τ υ : Type B} → σ <: τ ⇒ υ → Σ[ σ₁ ∈ Type B ] Σ[ σ₂ ∈ Type B ] (σ ≡ (σ₁ ⇒ σ₂))
@@ -249,8 +250,6 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
   -- times we need to use pureL to add boxes on the LHS; then using ap
   -- to push the boxes inwards and then arr to recurse.
 
-  -- Can we simplify or normalize these somehow??
-
   infix 1 _◃_
 
   data _◃_ : Type B → Type B → Set where
@@ -258,47 +257,54 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
     box : {σ τ : Type B} → (σ ◃ τ) → □ σ ◃ □ τ
     arr : {σ₁ σ₂ τ₁ τ₂ : Type B} → (τ₁ ◃ σ₁) → (σ₂ ◃ τ₂) → (σ₁ ⇒ σ₂ ◃ τ₁ ⇒ τ₂)
     pureR : {σ τ : Type B} → (σ ◃ τ) → σ ◃ □ τ
-    pureL : {σ τ : Type B} → (□ σ ◃ τ) → σ ◃ τ
-    ap : {σ₁ σ₂ τ : Type B} → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (□ (σ₁ ⇒ σ₂) ◃ τ)
+
+    -- pureL was getting in the way, and in theory we never want to do
+    -- it unless we immediately do an ap right after.  So introduced
+    -- ap□ which corresponds to doing pureL then ap.  However, we
+    -- still need the original ap because we might want to prove a
+    -- relation which already has a □ on the LHS.
+
+    -- pureL : {σ τ : Type B} → (□ σ ◃ τ) → σ ◃ τ
+    ap : {σ σ₁ σ₂ τ : Type B} → (σ ◃ σ₁ ⇒ σ₂) → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (□ σ ◃ τ)
+    ap□ : {σ σ₁ σ₂ τ : Type B} → (σ ◃ σ₁ ⇒ σ₂) → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (σ ◃ τ)
 
   -- Let's prove that ◃ actually completely characterizes (i.e. is
   -- logically equivalent to) subtyping.
 
-  -- One direction: if σ ◃ τ then σ <: τ.
+  -- One direction (easy): if σ ◃ τ then σ <: τ.
   ◃→<: : {σ τ : Type B} → σ ◃ τ → σ <: τ
   ◃→<: rfl = rfl
   ◃→<: (box σ◃τ) = box (◃→<: σ◃τ)
   ◃→<: (pureR σ◃τ) = tr (◃→<: σ◃τ) pure
-  ◃→<: (pureL σ◃τ) = tr pure (◃→<: σ◃τ)
-  ◃→<: (ap σ◃τ) = tr ap (◃→<: σ◃τ)
+    -- ◃→<: (pureL σ◃τ) = tr pure (◃→<: σ◃τ)
+  ◃→<: (ap σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃τ) = tr (box (◃→<: σ◃σ₁⇒σ₂)) (tr ap (◃→<: □σ₁⇒□σ₂◃τ))
+  ◃→<: (ap□ σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃τ) = tr (◃→<: σ◃σ₁⇒σ₂) (tr pure (tr ap (◃→<: □σ₁⇒□σ₂◃τ)))
   ◃→<: (arr σ◃τ₁ τ₁◃τ) = arr (◃→<: σ◃τ₁) (◃→<: τ₁◃τ)
 
-  -- Harder direction: if σ <: τ then σ ◃ τ.  First, show that
-  -- transitivity is admissible for the ◃ relation.  Need to prove it
-  -- by mutual induction with some other lemmas.
+  -- Harder direction: if σ <: τ then σ ◃ τ.  The key difficulty is to
+  -- show that transitivity is admissible, i.e. anything we could
+  -- prove with transitivity we can also prove without it.  aka cut
+  -- elimiation.
 
   ◃-trans : {σ τ υ : Type B} → σ ◃ τ → τ ◃ υ → σ ◃ υ
-  ◃-trans-□ : {σ τ υ : Type B} → σ ◃ τ → □ τ ◃ υ → □ σ ◃ υ
-
-  ◃-trans-□ σ◃τ rfl = box σ◃τ
-  ◃-trans-□ σ◃τ (box τ◃υ₁) = box (◃-trans σ◃τ τ◃υ₁ )
-  ◃-trans-□ σ◃τ₁ (pureR □τ₁◃τ) = pureR (◃-trans-□ σ◃τ₁ □τ₁◃τ)
-  ◃-trans-□ σ◃τ (pureL □□τ◃υ) = ◃-trans-□ (pureR σ◃τ) □□τ◃υ
-  ◃-trans-□ σ◃σ₁⇒σ₂ (ap □σ₁⇒□σ₂◃υ) = {!!}
-    -- ◃-trans (◃-trans (box σ◃σ₁⇒σ₂) (ap rfl)) □σ₁⇒□σ₂◃υ
-
-    -- (box (arr rfl pureR)) ; (ap rfl)
-    -- □ (σ ⇒ τ) ◃ □ (σ ⇒ □ τ)  ;  □ (σ ⇒ □ τ) ◃ □ σ ⇒ □ □ τ
-
-    -- □ (σ ⇒ τ) ◃ □ σ ⇒ □ □ τ
-    -- ap (arr  )
 
   ◃-trans rfl τ◃υ = τ◃υ
-  ◃-trans (box σ◃τ) □τ◃υ = ◃-trans-□ σ◃τ □τ◃υ
-  ◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) τ₁⇒τ₂◃υ = {!!}
-  ◃-trans (pureR σ◃τ) τ◃υ = ◃-trans σ◃τ (pureL τ◃υ)
-  ◃-trans (pureL σ◃τ) τ◃υ = pureL (◃-trans σ◃τ τ◃υ)
-  ◃-trans (ap σ◃τ) τ◃υ = ap (◃-trans σ◃τ τ◃υ)
+  ◃-trans (box σ◃τ) rfl = box σ◃τ
+  ◃-trans (box σ◃τ) (box τ◃υ) = box (◃-trans σ◃τ τ◃υ)
+  ◃-trans (box σ◃τ) (pureR □τ◃υ) = pureR (◃-trans (box σ◃τ) □τ◃υ)
+  ◃-trans (box σ◃τ) (ap □τ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃υ) = ap (◃-trans σ◃τ □τ◃σ₁⇒σ₂) □σ₁⇒□σ₂◃υ
+  ◃-trans (box σ◃τ) (ap□ □τ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃υ) = ap (◃-trans (pureR σ◃τ) □τ◃σ₁⇒σ₂) □σ₁⇒□σ₂◃υ
+  ◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) rfl = arr τ₁◃σ₁ σ₂◃τ₂
+  ◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) (arr τ₁◃υ₁ υ₂◃τ₂) = arr (◃-trans τ₁◃υ₁ τ₁◃σ₁) (◃-trans σ₂◃τ₂ υ₂◃τ₂)
+  ◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) (pureR τ₁⇒τ₂◃τ) = pureR (◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) τ₁⇒τ₂◃τ)
+  ◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) (ap□ a b) = {!!}
+  ◃-trans (pureR σ◃τ) rfl = pureR σ◃τ
+  ◃-trans (pureR σ◃τ) (box τ◃υ) = pureR (◃-trans σ◃τ τ◃υ)
+  ◃-trans (pureR σ◃τ) (pureR □τ◃υ) = {!!}
+  ◃-trans (pureR σ◃τ) (ap f g) = ap□ (◃-trans σ◃τ f) g
+  ◃-trans (pureR σ◃τ) (ap□ f g) = {!!}
+  ◃-trans (ap σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃τ) τ◃υ = ap σ◃σ₁⇒σ₂ (◃-trans □σ₁⇒□σ₂◃τ τ◃υ)
+  ◃-trans (ap□ σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃τ) τ◃υ = ap□ σ◃σ₁⇒σ₂ (◃-trans □σ₁⇒□σ₂◃τ τ◃υ)
 
   -- Now show that if σ <: τ then σ ◃ τ.  All the cases are immediate
   -- except for transitivity, for which we use the previous lemma.
@@ -308,7 +314,7 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
   <:→◃ (arr τ₁<:σ₁ σ₂<:τ₂) = arr (<:→◃ τ₁<:σ₁) (<:→◃ σ₂<:τ₂)
   <:→◃ (box σ<:τ) = box (<:→◃ σ<:τ)
   <:→◃ pure = pureR rfl
-  <:→◃ ap = ap rfl
+  <:→◃ ap = ap rfl rfl
 
   -- ⇒<:□-inv : {τ₁ τ₂ τ : Type B} → (τ₁ ⇒ τ₂ <: □ τ) → (τ₁ ⇒ τ₂ <: τ)
   -- ⇒<:□-inv (tr τ₁⇒τ₂<:τ₃ τ₃<:□τ) = {!!}
