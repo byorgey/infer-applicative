@@ -7,7 +7,7 @@ open import Data.Product
 open import Relation.Nullary.Negation
 open import Relation.Nullary.Decidable
 open import Data.Empty
-open import Relation.Binary using (Decidable)
+open import Relation.Binary using (Decidable ; DecidableEquality)
 open import Relation.Binary.PropositionalEquality
 open import Relation.Binary.HeterogeneousEquality using (_≅_ ; refl) renaming (cong₂ to ≅cong₂)
 
@@ -35,7 +35,7 @@ base-inj refl = refl
 □-inj : {B : Set} {τ₁ τ₂ : Type B} → (□ τ₁ ≡ □ τ₂) → (τ₁ ≡ τ₂)
 □-inj refl = refl
 
-module Infer (B : Set) (DecB : Decidable {A = B} _≡_) (C : Set) (CTy : C → Type B) where
+module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type B) where
 
   ------------------------------------------------------------
   -- Type equality is decidable
@@ -260,6 +260,8 @@ module Infer (B : Set) (DecB : Decidable {A = B} _≡_) (C : Set) (CTy : C → T
   -- times we need to use pureL to add boxes on the LHS; then using ap
   -- to push the boxes inwards and then arr to recurse.
 
+  -- Can we simplify or normalize these somehow??
+
   infix 1 _◃_
 
   data _◃_ : Type B → Type B → Set where
@@ -289,14 +291,21 @@ module Infer (B : Set) (DecB : Decidable {A = B} _≡_) (C : Set) (CTy : C → T
   ◃-trans : {σ τ υ : Type B} → σ ◃ τ → τ ◃ υ → σ ◃ υ
   ◃-trans-□ : {σ τ υ : Type B} → σ ◃ τ → □ τ ◃ υ → □ σ ◃ υ
 
-  -- ◃-trans-□ σ◃τ rfl = box σ◃τ
-  -- ◃-trans-□ σ◃τ (box τ◃υ₁) = box (◃-trans σ◃τ τ◃υ₁ )
-  -- ◃-trans-□ σ◃τ₁ (pureR □τ₁◃τ) = pureR (◃-trans-□ σ◃τ₁ □τ₁◃τ)
-  -- ◃-trans-□ σ◃τ (pureL □□τ◃υ) = ◃-trans-□ (pureR σ◃τ) □□τ◃υ
-  -- ◃-trans-□ σ◃σ₁⇒σ₂ (ap □σ₁⇒□σ₂◃υ) = ◃-trans {!!} □σ₁⇒□σ₂◃υ
+  ◃-trans-□ σ◃τ rfl = box σ◃τ
+  ◃-trans-□ σ◃τ (box τ◃υ₁) = box (◃-trans σ◃τ τ◃υ₁ )
+  ◃-trans-□ σ◃τ₁ (pureR □τ₁◃τ) = pureR (◃-trans-□ σ◃τ₁ □τ₁◃τ)
+  ◃-trans-□ σ◃τ (pureL □□τ◃υ) = ◃-trans-□ (pureR σ◃τ) □□τ◃υ
+  ◃-trans-□ σ◃σ₁⇒σ₂ (ap □σ₁⇒□σ₂◃υ) = {!!}
+    -- ◃-trans (◃-trans (box σ◃σ₁⇒σ₂) (ap rfl)) □σ₁⇒□σ₂◃υ
+
+    -- (box (arr rfl pureR)) ; (ap rfl)
+    -- □ (σ ⇒ τ) ◃ □ (σ ⇒ □ τ)  ;  □ (σ ⇒ □ τ) ◃ □ σ ⇒ □ □ τ
+
+    -- □ (σ ⇒ τ) ◃ □ σ ⇒ □ □ τ
+    -- ap (arr  )
 
   ◃-trans rfl τ◃υ = τ◃υ
-  ◃-trans (box σ◃τ) □τ◃υ = {!!} -- ◃-trans-□ σ◃τ □τ◃υ
+  ◃-trans (box σ◃τ) □τ◃υ = ◃-trans-□ σ◃τ □τ◃υ
   ◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) τ₁⇒τ₂◃υ = {!!}
   ◃-trans (pureR σ◃τ) τ◃υ = ◃-trans σ◃τ (pureL τ◃υ)
   ◃-trans (pureL σ◃τ) τ◃υ = pureL (◃-trans σ◃τ τ◃υ)
@@ -337,22 +346,30 @@ module Infer (B : Set) (DecB : Decidable {A = B} _≡_) (C : Set) (CTy : C → T
   --------------------------------------------------
   -- Subtyping is decidable
 
+  ◃-Dec : Decidable _◃_
+  ◃-Dec σ τ = {!!}
+
   <:-Dec : Decidable _<:_
-  <:-Dec (base b₁) (base b₂) with DecB b₁ b₂
-  ... | no b₁≢b₂ = no (λ b₁<:b₂ → contradiction (base-inj (<:B-inv b₁<:b₂)) b₁≢b₂)
-  ... | yes b₁≡b₂ rewrite b₁≡b₂ = yes rfl
-  <:-Dec (base _) (_ ⇒ _) = no ¬B<:⇒
-  <:-Dec (base b) (□ τ) with <:-Dec (base b) τ
-  ... | no ¬b<:τ = no (λ b<:□τ → ¬b<:τ (B<:□-inv b<:□τ))
-  ... | yes b<:τ = yes (tr b<:τ pure)
-  <:-Dec (_ ⇒ _) (base _) = no ¬⇒<:B
-  <:-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) = {!!}
-  <:-Dec (σ ⇒ σ₁) (□ τ) = {!!}
-  <:-Dec (□ _) (base _) = no ¬□<:b
-  <:-Dec (□ σ) (τ ⇒ τ₁) = {!!}
-  <:-Dec (□ σ) (□ τ) with <:-Dec σ τ
-  ... | no ¬σ<:τ = no (λ □σ<:□τ → ¬σ<:τ (□-<:-inv □σ<:□τ))
-  ... | yes σ<:τ = yes (box σ<:τ)
+  <:-Dec σ τ with ◃-Dec σ τ
+  ... | no ¬σ◃τ = no λ σ<:τ → ¬σ◃τ (<:→◃ σ<:τ)
+  ... | yes σ◃τ = yes (◃→<: σ◃τ)
+
+  -- <:-Dec : Decidable _<:_
+  -- <:-Dec (base b₁) (base b₂) with DecB b₁ b₂
+  -- ... | no b₁≢b₂ = no (λ b₁<:b₂ → contradiction (base-inj (<:B-inv b₁<:b₂)) b₁≢b₂)
+  -- ... | yes b₁≡b₂ rewrite b₁≡b₂ = yes rfl
+  -- <:-Dec (base _) (_ ⇒ _) = no ¬B<:⇒
+  -- <:-Dec (base b) (□ τ) with <:-Dec (base b) τ
+  -- ... | no ¬b<:τ = no (λ b<:□τ → ¬b<:τ (B<:□-inv b<:□τ))
+  -- ... | yes b<:τ = yes (tr b<:τ pure)
+  -- <:-Dec (_ ⇒ _) (base _) = no ¬⇒<:B
+  -- <:-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) = {!!}
+  -- <:-Dec (σ ⇒ σ₁) (□ τ) = {!!}
+  -- <:-Dec (□ _) (base _) = no ¬□<:b
+  -- <:-Dec (□ σ) (τ ⇒ τ₁) = {!!}
+  -- <:-Dec (□ σ) (□ τ) with <:-Dec σ τ
+  -- ... | no ¬σ<:τ = no (λ □σ<:□τ → ¬σ<:τ (□-<:-inv □σ<:□τ))
+  -- ... | yes σ<:τ = yes (box σ<:τ)
 
 
   ------------------------------------------------------------
