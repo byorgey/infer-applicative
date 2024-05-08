@@ -73,29 +73,18 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
 
   infix 1 _<:_
 
-  -- Ill-fated attempt at not having to deal with transitivity.
-  {-
-  -- Version of subtyping with transitivity.
-  data _<:′_ : Type B → Type B → Set where
-    tr : {σ τ υ : Type B} → σ <:′ τ → τ <:′ υ → σ <:′ υ
-    emb : {σ τ : Type B} → σ <: τ → σ <:′ τ
-
-  -- Proof that transitivity is admissible, so we are OK to just use
-  -- <: everywhere instead of <:′
-  tr-admissible : {σ τ υ : Type B} → σ <: τ → τ <: υ → σ <: υ
-  tr-admissible rfl τ<:υ = τ<:υ
-  tr-admissible (arr τ₁<:σ₁ σ₂<:τ₂) τ₁⇒τ₂<:υ = {!!}
-  tr-admissible (box σ<:τ) □τ<:υ = {!!}
-  tr-admissible pure rfl = pure
-  tr-admissible pure (box σ<:τ) = {!!}
-  tr-admissible pure pure = {!!}
-  tr-admissible pure ap = {!!}
-  tr-admissible ap τ<:υ = {!!}
-
-  <:′→<: : {σ τ : Type B} → σ <:′ τ → σ <: τ
-  <:′→<: (tr σ<:′τ₁ τ₁<:′τ) = tr-admissible (<:′→<: σ<:′τ₁) (<:′→<: τ₁<:′τ)
-  <:′→<: (emb σ:<τ) = σ:<τ
-  -}
+  -- Observation: given transitivity, we can split arr into two rules:
+  --   arrL : τ₁ <: σ₁ → (σ₁ ⇒ τ₂ <: τ₁ ⇒ τ₂)
+  --   arrR : σ₂ <: τ₂ → (τ₁ ⇒ σ₂ <: τ₁ ⇒ τ₂)
+  -- Not sure if this would be helpful or not.
+  --
+  -- If we do that, tr is the only rule which involves branching.  If
+  -- we tried to then eliminate tr, we would either need to
+  -- re-introduce some kind of branching constructor
+  -- (i.e. reconstitute arr), or else have only a linear chain of
+  -- combinators, which would necessarily need to operate implicitly
+  -- on some kind of stack or something.  I don't know if that's a
+  -- good idea.  Maybe this leads to something sequent-calculus-like?
 
   -- First attempt at inversion lemma for subtyping, but as stated this is
   -- not true, because of PURE!
