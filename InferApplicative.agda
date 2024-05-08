@@ -1,3 +1,4 @@
+open import Function using (_∘_)
 open import Data.Bool
 open import Data.Nat
 open import Data.Fin hiding (_≥_)
@@ -221,34 +222,19 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
   <:→⟨⟩ pure = refl
   <:→⟨⟩ ap = refl
 
-  -- A transitivity-free relation on ShapedTys that characterizes
-  -- subtyping.
-  -- Do we really need shapedtys here?  Could we just get away with normal types?
-
-  -- infix 1 _◃_
-
-  -- data _◃_ : {s : TyShape} → ShapedTy s → ShapedTy s → Set where
-  --   rfl : {s : TyShape} {τ : ShapedTy s} → τ ◃ τ
-  --   box : {s : TyShape} {σ τ : ShapedTy s} → (σ ◃ τ) → □ σ ◃ □ τ
-  --   pureR : {s : TyShape} {σ τ : ShapedTy s} → (σ ◃ τ) → σ ◃ □ τ
-  --   pureL : {s : TyShape} {σ τ : ShapedTy s} → (□ σ ◃ τ) → σ ◃ τ
-  --   ap : {l r : TyShape} {σ₁ : ShapedTy l} {σ₂ : ShapedTy r} {τ : ShapedTy (l ⇒ r)}
-  --      → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (□ (σ₁ ⇒ σ₂) ◃ τ)
-  --   arr : {l r : TyShape} {σ₁ τ₁ : ShapedTy l} {σ₂ τ₂ : ShapedTy r}
-  --      → (τ₁ ◃ σ₁) → (σ₂ ◃ τ₂) → (σ₁ ⇒ σ₂ ◃ τ₁ ⇒ τ₂)
+  ------------------------------------------------------------
+  -- Transitivity-free subtyping
+  ------------------------------------------------------------
 
   -- Version of transitivity-free subtyping relation on normal types
   -- rather than ShapedTys.  I had to work very, very hard to come up
-  -- with a correct definition; kind of obvious in retrospect.  The
-  -- rfl, box, and arr rules just correspond to subtyping rules.  The
-  -- pureR, pureL, and ap rules each represent a use of transitivity +
-  -- a corresponding subtyping rule to "chip away" at one end of the
-  -- proof or the other, leaving some remaining steps to establish.
+  -- with a definition that was correct and allows proving
+  -- transitivity admissible.
   --
-  -- Building an actual proof looks like first clearing away matching
-  -- or RHS boxes with box and pureR, then correctly guessing how many
-  -- times we need to use pureL to add boxes on the LHS; then using ap
-  -- to push the boxes inwards and then arr to recurse.
+  -- Building an actual proof looks like (1) first clearing away matching
+  -- or RHS boxes with box and pure, then (2) using ap to push existing
+  -- LHS boxes inwards, and/or using ap□ to create boxes and push them
+  -- inwards; and (3) using arr to recurse on the subtrees.
 
   infix 1 _◃_
 
@@ -256,17 +242,17 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
     rfl : {τ : Type B} → τ ◃ τ
     box : {σ τ : Type B} → (σ ◃ τ) → □ σ ◃ □ τ
     arr : {σ₁ σ₂ τ₁ τ₂ : Type B} → (τ₁ ◃ σ₁) → (σ₂ ◃ τ₂) → (σ₁ ⇒ σ₂ ◃ τ₁ ⇒ τ₂)
-    pureR : {σ τ : Type B} → (σ ◃ τ) → σ ◃ □ τ
-
-    -- pureL was getting in the way, and in theory we never want to do
-    -- it unless we immediately do an ap right after.  So introduced
-    -- ap□ which corresponds to doing pureL then ap.  However, we
-    -- still need the original ap because we might want to prove a
-    -- relation which already has a □ on the LHS.
-
-    -- pureL : {σ τ : Type B} → (□ σ ◃ τ) → σ ◃ τ
+    pure : {σ τ : Type B} → (σ ◃ τ) → σ ◃ □ τ
     ap : {σ σ₁ σ₂ τ : Type B} → (σ ◃ σ₁ ⇒ σ₂) → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (□ σ ◃ τ)
     ap□ : {σ σ₁ σ₂ τ : Type B} → (σ ◃ σ₁ ⇒ σ₂) → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (σ ◃ τ)
+
+  -- pureL was getting in the way, and in theory we never want to do
+  -- it unless we immediately do an ap right after.  So introduced
+  -- ap□ which corresponds to doing pureL then ap.  However, we
+  -- still need the original ap because we might want to prove a
+  -- relation which already has a □ on the LHS.
+
+  -- pureL : {σ τ : Type B} → (□ σ ◃ τ) → σ ◃ τ
 
   -- Let's prove that ◃ actually completely characterizes (i.e. is
   -- logically equivalent to) subtyping.
@@ -275,74 +261,98 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
   ◃→<: : {σ τ : Type B} → σ ◃ τ → σ <: τ
   ◃→<: rfl = rfl
   ◃→<: (box σ◃τ) = box (◃→<: σ◃τ)
-  ◃→<: (pureR σ◃τ) = tr (◃→<: σ◃τ) pure
-    -- ◃→<: (pureL σ◃τ) = tr pure (◃→<: σ◃τ)
+  ◃→<: (pure σ◃τ) = tr (◃→<: σ◃τ) pure
   ◃→<: (ap σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃τ) = tr (box (◃→<: σ◃σ₁⇒σ₂)) (tr ap (◃→<: □σ₁⇒□σ₂◃τ))
   ◃→<: (ap□ σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃τ) = tr (◃→<: σ◃σ₁⇒σ₂) (tr pure (tr ap (◃→<: □σ₁⇒□σ₂◃τ)))
   ◃→<: (arr σ◃τ₁ τ₁◃τ) = arr (◃→<: σ◃τ₁) (◃→<: τ₁◃τ)
 
   -- Harder direction: if σ <: τ then σ ◃ τ.  The key difficulty is to
   -- show that transitivity is admissible, i.e. anything we could
-  -- prove with transitivity we can also prove without it.  aka cut
-  -- elimiation.
+  -- prove with transitivity we can also prove without it.  We also
+  -- need a couple mutually inductive lemmas.
+  --
+  -- Blah blah cut elimination...
 
   ◃-trans : {σ τ υ : Type B} → σ ◃ τ → τ ◃ υ → σ ◃ υ
+  ◃-trans-arr-ap□ : {τ₁ τ₂ σ₁ σ₂ υ₁ υ₂ υ : Type B} → τ₁ ◃ σ₁ → σ₂ ◃ τ₂ → (τ₁ ⇒ τ₂ ◃ υ₁ ⇒ υ₂) → (□ υ₁ ⇒ □ υ₂ ◃ υ) → σ₁ ⇒ σ₂ ◃ υ
+  ◃-trans-pureL : {σ τ υ : Type B} → σ ◃ τ → □ τ ◃ υ → σ ◃ υ
 
   ◃-trans rfl τ◃υ = τ◃υ
   ◃-trans (box σ◃τ) rfl = box σ◃τ
   ◃-trans (box σ◃τ) (box τ◃υ) = box (◃-trans σ◃τ τ◃υ)
-  ◃-trans (box σ◃τ) (pureR □τ◃υ) = pureR (◃-trans (box σ◃τ) □τ◃υ)
+  ◃-trans (box σ◃τ) (pure □τ◃υ) = pure (◃-trans (box σ◃τ) □τ◃υ)
   ◃-trans (box σ◃τ) (ap □τ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃υ) = ap (◃-trans σ◃τ □τ◃σ₁⇒σ₂) □σ₁⇒□σ₂◃υ
-  ◃-trans (box σ◃τ) (ap□ □τ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃υ) = ap (◃-trans (pureR σ◃τ) □τ◃σ₁⇒σ₂) □σ₁⇒□σ₂◃υ
+  ◃-trans (box σ◃τ) (ap□ □τ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃υ) = ap (◃-trans (pure σ◃τ) □τ◃σ₁⇒σ₂) □σ₁⇒□σ₂◃υ
   ◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) rfl = arr τ₁◃σ₁ σ₂◃τ₂
   ◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) (arr τ₁◃υ₁ υ₂◃τ₂) = arr (◃-trans τ₁◃υ₁ τ₁◃σ₁) (◃-trans σ₂◃τ₂ υ₂◃τ₂)
-  ◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) (pureR τ₁⇒τ₂◃τ) = pureR (◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) τ₁⇒τ₂◃τ)
-  ◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) (ap□ a b) = {!!}
-  ◃-trans (pureR σ◃τ) rfl = pureR σ◃τ
-  ◃-trans (pureR σ◃τ) (box τ◃υ) = pureR (◃-trans σ◃τ τ◃υ)
-  ◃-trans (pureR σ◃τ) (pureR □τ◃υ) = {!!}
-  ◃-trans (pureR σ◃τ) (ap f g) = ap□ (◃-trans σ◃τ f) g
-  ◃-trans (pureR σ◃τ) (ap□ f g) = {!!}
+  ◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) (pure τ₁⇒τ₂◃τ) = pure (◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) τ₁⇒τ₂◃τ)
+  ◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) (ap□ τ₁⇒τ₂◃υ₁⇒υ₂ □υ₁⇒□υ₂◃υ) = ◃-trans-arr-ap□ τ₁◃σ₁ σ₂◃τ₂ τ₁⇒τ₂◃υ₁⇒υ₂ □υ₁⇒□υ₂◃υ
+  ◃-trans (pure σ◃τ) □τ◃υ = ◃-trans-pureL σ◃τ □τ◃υ
   ◃-trans (ap σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃τ) τ◃υ = ap σ◃σ₁⇒σ₂ (◃-trans □σ₁⇒□σ₂◃τ τ◃υ)
   ◃-trans (ap□ σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃τ) τ◃υ = ap□ σ◃σ₁⇒σ₂ (◃-trans □σ₁⇒□σ₂◃τ τ◃υ)
 
-  -- Now show that if σ <: τ then σ ◃ τ.  All the cases are immediate
-  -- except for transitivity, for which we use the previous lemma.
+  -- Need a helper lemma to potentially iterate ap□ in the RHS.  This makes sense since
+  -- we might need to apply pure;ap many times before getting an arrow type which we can then
+  -- combine with the arr on the LHS.
+  ◃-trans-arr-ap□ τ₁◃σ₁ σ₂◃τ₂ rfl □υ₁⇒□υ₂◃υ = ap□ (arr τ₁◃σ₁ σ₂◃τ₂) □υ₁⇒□υ₂◃υ
+  ◃-trans-arr-ap□ τ₁◃σ₁ σ₂◃τ₂ (arr υ₁◃τ₁ τ₂◃υ₂) □υ₁⇒□υ₂◃υ = ap□ (arr (◃-trans υ₁◃τ₁ τ₁◃σ₁) (◃-trans σ₂◃τ₂ τ₂◃υ₂)) □υ₁⇒□υ₂◃υ
+  ◃-trans-arr-ap□ τ₁◃σ₁ σ₂◃τ₂ (ap□ τ₁⇒τ₂◃χ₁⇒χ₂ □χ₁⇒□χ₂◃υ₁⇒υ₂) □υ₁⇒□υ₂◃υ = ap□ (◃-trans-arr-ap□ τ₁◃σ₁ σ₂◃τ₂ τ₁⇒τ₂◃χ₁⇒χ₂ □χ₁⇒□χ₂◃υ₁⇒υ₂) □υ₁⇒□υ₂◃υ
+
+  -- applying an extra pure before doing something else...
+  ◃-trans-pureL σ◃τ rfl = pure σ◃τ
+  ◃-trans-pureL σ◃τ (box τ◃υ) = pure (◃-trans σ◃τ τ◃υ)
+  ◃-trans-pureL σ◃τ (pure □τ◃υ) = pure (◃-trans-pureL σ◃τ □τ◃υ)
+  ◃-trans-pureL σ◃τ (ap τ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃υ) = ap□ (◃-trans σ◃τ τ◃σ₁⇒σ₂) □σ₁⇒□σ₂◃υ
+  ◃-trans-pureL σ◃τ (ap□ τ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃υ) = ap□ (◃-trans-pureL σ◃τ τ◃σ₁⇒σ₂) □σ₁⇒□σ₂◃υ
+
+  -- Now we can show that if σ <: τ then σ ◃ τ.  All the cases are
+  -- immediate except for transitivity, for which we use the previous
+  -- lemma.
   <:→◃ : {σ τ : Type B} → σ <: τ → σ ◃ τ
   <:→◃ rfl = rfl
   <:→◃ (tr σ<:τ₁ τ₁<:τ) = ◃-trans (<:→◃ σ<:τ₁) (<:→◃ τ₁<:τ)
   <:→◃ (arr τ₁<:σ₁ σ₂<:τ₂) = arr (<:→◃ τ₁<:σ₁) (<:→◃ σ₂<:τ₂)
   <:→◃ (box σ<:τ) = box (<:→◃ σ<:τ)
-  <:→◃ pure = pureR rfl
+  <:→◃ pure = pure rfl
   <:→◃ ap = ap rfl rfl
 
-  -- ⇒<:□-inv : {τ₁ τ₂ τ : Type B} → (τ₁ ⇒ τ₂ <: □ τ) → (τ₁ ⇒ τ₂ <: τ)
-  -- ⇒<:□-inv (tr τ₁⇒τ₂<:τ₃ τ₃<:□τ) = {!!}
-  -- ⇒<:□-inv pure = rfl
+  --------------------------------------------------
+  -- More lemmas about _◃_
 
-  -- <:-□-inv : {σ τ : Type B} → ¬(Σ[ σ′ ∈ Type B ] σ ≡ □ σ′) → (σ <: □ τ) → (σ <: τ)
-  -- <:-□-inv {τ = τ} notbox rfl = contradiction (τ , refl) notbox
-  -- <:-□-inv notbox (tr {τ = base b} σ<:b b<:□τ) with <:B-inv σ<:b
-  -- ... | refl = {!!}
-  -- <:-□-inv notbox (tr {τ = τ₁ ⇒ τ₂} σ<:τ₁ τ₁<:□τ) = {!!}
-  -- <:-□-inv notbox (tr {τ = □ τ₁} σ<:τ₁ τ₁<:□τ) = {!!}
-  -- <:-□-inv notbox (box {σ = σ₁} σ<:τ) = contradiction (σ₁ , refl) notbox
-  -- <:-□-inv notbox pure = rfl
+  -- Types related by ◃ have the same shape.  This is just the
+  -- composition of a couple previous lemmas.
+  ◃→⟨⟩ : {σ τ : Type B} → σ ◃ τ → ⟨ σ ⟩ ≡ ⟨ τ ⟩
+  ◃→⟨⟩ = <:→⟨⟩ ∘ ◃→<:
 
-  □-<:-inv : {σ τ : Type B} → (□ σ <: □ τ) → (σ <: τ)
-  □-<:-inv rfl = rfl
-  □-<:-inv (tr {τ = base b} □σ<:b b<:□τ) with <:B-inv □σ<:b
-  ... | ()
-  □-<:-inv (tr {τ = τ₁ ⇒ τ₂} □σ<:τ₁⇒τ₂ τ₁⇒τ₂<:□τ) = {!tr □σ<:τ₁⇒τ₂ (<:-□-inv _ τ₁⇒τ₂<:□τ)!}
-  □-<:-inv (tr {τ = □ τ₁} □σ<:□τ₁ □τ₁<:□τ) = tr (□-<:-inv □σ<:□τ₁) (□-<:-inv □τ₁<:□τ)
-  □-<:-inv (box prf) = prf
-  □-<:-inv pure = pure
+  ◃B-inv : {τ : Type B} {b : B} → τ ◃ base b → τ ≡ base b
+  ◃B-inv s = <:B-inv (◃→<: s)
+
+  ¬B◃⇒ : {b : B} {τ₁ τ₂ : Type B} → ¬ (base b ◃ τ₁ ⇒ τ₂)
+  ¬B◃⇒ prf = ¬B<:⇒ (◃→<: prf)
+
+  -- This inversion lemma is easy, because we don't have to worry
+  -- about transitivity! yippee!
+  ⇒◃□-inv : {σ₁ σ₂ τ : Type B} → σ₁ ⇒ σ₂ ◃ □ τ → σ₁ ⇒ σ₂ ◃ τ
+  ⇒◃□-inv (pure s) = s
+  ⇒◃□-inv (ap□ f g) = ap□ f (⇒◃□-inv g)
 
   --------------------------------------------------
   -- Subtyping is decidable
 
   ◃-Dec : Decidable _◃_
-  ◃-Dec σ τ = {!!}
+  ◃-Dec (base b₁) (base b₂) with DecB b₁ b₂
+  ... | no b₁≢b₂ = no (contraposition (base-inj ∘ ◃B-inv) b₁≢b₂)
+  ... | yes b₁≡b₂ rewrite b₁≡b₂ = yes rfl
+  ◃-Dec (base _) (_ ⇒ _) = no ¬B◃⇒
+  ◃-Dec (base x) (□ τ) = {!!}
+  ◃-Dec (_ ⇒ _) (base _) = {!!}
+  ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) = {!!}  -- can't just decompose, might have to do some ap□ first...
+  ◃-Dec (σ₁ ⇒ σ₂) (□ τ) with ◃-Dec (σ₁ ⇒ σ₂) τ
+  ... | no ¬σ₁⇒σ₂◃τ = no (contraposition ⇒◃□-inv ¬σ₁⇒σ₂◃τ)
+  ... | yes σ₁⇒σ₂◃τ = yes (pure σ₁⇒σ₂◃τ)
+  ◃-Dec (□ _) (base _) = {!!}
+  ◃-Dec (□ σ) (τ₁ ⇒ τ₂) = {!!}  -- guess how many times to push boxes down!
+  ◃-Dec (□ σ) (□ τ) = {!!}
 
   <:-Dec : Decidable _<:_
   <:-Dec σ τ with ◃-Dec σ τ
