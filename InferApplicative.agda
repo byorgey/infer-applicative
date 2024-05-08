@@ -19,6 +19,9 @@ variable
 -- Types
 ------------------------------------------------------------
 
+-- XXX clean this up --- move to another standalone module, with B as
+-- a parameter.  Then we don't need to write Type B everywhere.
+
 data Type (B : Set) : Set where
   base : B → Type B
   _⇒_ : Type B → Type B → Type B
@@ -483,3 +486,7 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
   -- ... | inj₁ x | inj₂ y = {!!}
   -- ... | inj₂ y₁ | y = {!!}
   -- infer Γ (con x) = inj₁ (CTy x , con x)
+
+  -- Make versions of type system with and without subtyping.  Should
+  -- be able to use subtyping relation to elaborate terms to insert
+  -- appropriate constants (pure, ap).
