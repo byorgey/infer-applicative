@@ -116,8 +116,8 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
   <:B-inv rfl = refl
   <:B-inv (tr τ<:τ₁ τ₁<:b) rewrite <:B-inv τ₁<:b = <:B-inv τ<:τ₁
 
-  ¬□<:b : {τ : Type B} {b : B} → ¬ (□ τ <: base b)
-  ¬□<:b □τ<:b with <:B-inv □τ<:b
+  ¬□<:B : {τ : Type B} {b : B} → ¬ (□ τ <: base b)
+  ¬□<:B □τ<:b with <:B-inv □τ<:b
   ... | ()
 
   ¬⇒<:B : {σ τ : Type B} {b : B} → ¬ (σ ⇒ τ <: base b)
@@ -164,9 +164,6 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
 
   ¬B<:⇒ : {b : B} {τ₁ τ₂ : Type B} → ¬ (base b <: τ₁ ⇒ τ₂)
   ¬B<:⇒ = ¬LB<:⇒ IsBase
-
-  -- Next order of business: characterize subtyping for functions just like
-  --   I did for base types.
 
   data TyShape : Set where
     base : B → TyShape
@@ -317,18 +314,39 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
   <:→◃ ap = ap rfl rfl
 
   --------------------------------------------------
+  -- pureL is admissible
+  --------------------------------------------------
+
+  -- We went to a lot of trouble to get rid of pureL, but sometimes we
+  -- really want it!
+
+  pureL : {σ τ : Type B} → □ σ ◃ τ → σ ◃ τ
+  pureL rfl = pure rfl
+  pureL (box σ◃τ) = pure σ◃τ
+  pureL (pure □σ◃τ) = pure (pureL □σ◃τ)
+  pureL (ap f g) = ap□ f g
+  pureL (ap□ f g) = ap□ (pureL f) g
+
+  --------------------------------------------------
   -- More lemmas about _◃_
 
-  -- Types related by ◃ have the same shape.  This is just the
-  -- composition of a couple previous lemmas.
   ◃→⟨⟩ : {σ τ : Type B} → σ ◃ τ → ⟨ σ ⟩ ≡ ⟨ τ ⟩
   ◃→⟨⟩ = <:→⟨⟩ ∘ ◃→<:
 
   ◃B-inv : {τ : Type B} {b : B} → τ ◃ base b → τ ≡ base b
-  ◃B-inv s = <:B-inv (◃→<: s)
+  ◃B-inv = <:B-inv ∘ ◃→<:
+
+  B◃□-inv : {b : B} {τ : Type B} → base b ◃ □ τ → base b ◃ τ
+  B◃□-inv = <:→◃ ∘ B<:□-inv ∘ ◃→<:
 
   ¬B◃⇒ : {b : B} {τ₁ τ₂ : Type B} → ¬ (base b ◃ τ₁ ⇒ τ₂)
-  ¬B◃⇒ prf = ¬B<:⇒ (◃→<: prf)
+  ¬B◃⇒ = ¬B<:⇒ ∘ ◃→<:
+
+  ¬⇒◃B : {b : B} {τ₁ τ₂ : Type B} → ¬ (τ₁ ⇒ τ₂ ◃ base b)
+  ¬⇒◃B = ¬⇒<:B ∘ ◃→<:
+
+  ¬□◃B : {τ : Type B} {b : B} → ¬ (□ τ ◃ base b)
+  ¬□◃B = ¬□<:B ∘ ◃→<:
 
   -- This inversion lemma is easy, because we don't have to worry
   -- about transitivity! yippee!
@@ -336,46 +354,70 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
   ⇒◃□-inv (pure s) = s
   ⇒◃□-inv (ap□ f g) = ap□ f (⇒◃□-inv g)
 
+  -- This one is more difficult... but it would probably be super
+  -- impossible with transitivity in the mix.
+
+  -- This says when checking subtyping it is always OK to cancel boxes
+  -- from both sides.  Put another way, any proof of □ σ ◃ □ τ can be
+  -- rewritten to have 'box' as its outermost constructor. Put yet
+  -- another way, any term of type □ σ → □ τ can be rewritten to have
+  -- 'fmap' as its outermost function call.
+  □-inv : {σ τ : Type B} → □ σ ◃ □ τ → σ ◃ τ
+  □-inv rfl = rfl
+  □-inv (box p) = p
+  □-inv (pure p) = pureL p
+  □-inv (ap f g) = ◃-trans (ap□ f rfl) (⇒◃□-inv g)
+  □-inv (ap□ f g) = pureL (◃-trans (ap□ f rfl) (⇒◃□-inv g))
+
+  □◃⇒-inv : {σ τ₁ τ₂ : Type B} → □ σ ◃ τ₁ ⇒ τ₂ → Σ[ σ₁ ∈ Type B ] Σ[ σ₂ ∈ Type B ] (σ ◃ σ₁ ⇒ σ₂) × (□ σ₁ ⇒ □ σ₂ ◃ τ₁ ⇒ τ₂)
+  □◃⇒-inv (ap {σ₁ = σ₁} {σ₂ = σ₂} f g) = σ₁ , σ₂ , f , g
+  □◃⇒-inv (ap□ {σ₁ = σ₁} {σ₂ = σ₂} f g) = σ₁ , σ₂ , pureL f , g
+
   --------------------------------------------------
   -- Subtyping is decidable
 
   ◃-Dec : Decidable _◃_
+
+  -- First, some impossible cases.
+  ◃-Dec (base _) (_ ⇒ _) = no ¬B◃⇒
+  ◃-Dec (_ ⇒ _) (base _) = no ¬⇒◃B
+  ◃-Dec (□ _) (base _) = no ¬□◃B
+
+  -- There's no subtyping among base types, so just check for equality.
   ◃-Dec (base b₁) (base b₂) with DecB b₁ b₂
   ... | no b₁≢b₂ = no (contraposition (base-inj ∘ ◃B-inv) b₁≢b₂)
   ... | yes b₁≡b₂ rewrite b₁≡b₂ = yes rfl
-  ◃-Dec (base _) (_ ⇒ _) = no ¬B◃⇒
-  ◃-Dec (base x) (□ τ) = {!!}
-  ◃-Dec (_ ⇒ _) (base _) = {!!}
-  ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) = {!!}  -- can't just decompose, might have to do some ap□ first...
-  ◃-Dec (σ₁ ⇒ σ₂) (□ τ) with ◃-Dec (σ₁ ⇒ σ₂) τ
+
+  -- If there's a box on both sides, it's always OK to cancel them.
+  ◃-Dec (□ σ) (□ τ) with ◃-Dec σ τ
+  ... | no ¬σ◃τ = no (contraposition □-inv ¬σ◃τ)
+  ... | yes σ◃τ = yes (box σ◃τ)
+
+  -- If there's a box only on the right, we can just use 'pure'.
+
+  ◃-Dec (base b) (□ τ) with ◃-Dec (base b) τ
+  ... | no ¬b◃τ = no (contraposition B◃□-inv ¬b◃τ)
+  ... | yes b◃τ = yes (pure b◃τ)
+  ◃-Dec (σ₁ ⇒ σ₂) (□ τ) with ◃-Dec (σ₁ ⇒ σ₂) τ  -- Just use pure for box on RHS
   ... | no ¬σ₁⇒σ₂◃τ = no (contraposition ⇒◃□-inv ¬σ₁⇒σ₂◃τ)
   ... | yes σ₁⇒σ₂◃τ = yes (pure σ₁⇒σ₂◃τ)
-  ◃-Dec (□ _) (base _) = {!!}
-  ◃-Dec (□ σ) (τ₁ ⇒ τ₂) = {!!}  -- guess how many times to push boxes down!
-  ◃-Dec (□ σ) (□ τ) = {!!}
+
+  -- And now for the interesting cases!
+
+  -- The only way to get this next case is to first push the box down,
+  -- i.e.  use the ap rule.  However, we have to figure out σ₁ and σ₂.
+  -- They must be whatever is on the LHS and RHS of σ (which must have
+  -- a ⇒ shape), but with possibly different numbers of □ ...
+  ◃-Dec (□ σ) (τ₁ ⇒ τ₂) = {!!}
+
+  -- Can't just decompose, might have to do some ap□ first (but we
+  -- have to guess how many...)
+  ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) = {!!}
 
   <:-Dec : Decidable _<:_
   <:-Dec σ τ with ◃-Dec σ τ
   ... | no ¬σ◃τ = no λ σ<:τ → ¬σ◃τ (<:→◃ σ<:τ)
   ... | yes σ◃τ = yes (◃→<: σ◃τ)
-
-  -- <:-Dec : Decidable _<:_
-  -- <:-Dec (base b₁) (base b₂) with DecB b₁ b₂
-  -- ... | no b₁≢b₂ = no (λ b₁<:b₂ → contradiction (base-inj (<:B-inv b₁<:b₂)) b₁≢b₂)
-  -- ... | yes b₁≡b₂ rewrite b₁≡b₂ = yes rfl
-  -- <:-Dec (base _) (_ ⇒ _) = no ¬B<:⇒
-  -- <:-Dec (base b) (□ τ) with <:-Dec (base b) τ
-  -- ... | no ¬b<:τ = no (λ b<:□τ → ¬b<:τ (B<:□-inv b<:□τ))
-  -- ... | yes b<:τ = yes (tr b<:τ pure)
-  -- <:-Dec (_ ⇒ _) (base _) = no ¬⇒<:B
-  -- <:-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) = {!!}
-  -- <:-Dec (σ ⇒ σ₁) (□ τ) = {!!}
-  -- <:-Dec (□ _) (base _) = no ¬□<:b
-  -- <:-Dec (□ σ) (τ ⇒ τ₁) = {!!}
-  -- <:-Dec (□ σ) (□ τ) with <:-Dec σ τ
-  -- ... | no ¬σ<:τ = no (λ □σ<:□τ → ¬σ<:τ (□-<:-inv □σ<:□τ))
-  -- ... | yes σ<:τ = yes (box σ<:τ)
-
 
   ------------------------------------------------------------
   -- Terms + contexts
@@ -416,24 +458,24 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
   data _⊬_ : Ctx n → Term n → Set₁ where
     lam : {t : Term (suc n)} (σ : Type B) → (Γ ,, σ ⊬ t) → (Γ ⊬ ƛ σ t)
 
-  ⊬⇒¬⊢ : {t : Term n} → (Γ ⊬ t) → ¬ (Σ[ τ ∈ Type B ] (Γ ⊢ t ː τ))
-  ⊬⇒¬⊢ (lam σ pf) (τ , sub Γ⊢ƛσt:τ₁ τ₂<:τ) = ⊬⇒¬⊢ pf (σ , {!!})
-  ⊬⇒¬⊢ (lam σ pf) ((.σ ⇒ τ) , lam Γ⊢ƛσt:τ) = ⊬⇒¬⊢ pf (τ , Γ⊢ƛσt:τ)
+  -- ⊬⇒¬⊢ : {t : Term n} → (Γ ⊬ t) → ¬ (Σ[ τ ∈ Type B ] (Γ ⊢ t ː τ))
+  -- ⊬⇒¬⊢ (lam σ pf) (τ , sub Γ⊢ƛσt:τ₁ τ₂<:τ) = ⊬⇒¬⊢ pf (σ , {!!})
+  -- ⊬⇒¬⊢ (lam σ pf) ((.σ ⇒ τ) , lam Γ⊢ƛσt:τ) = ⊬⇒¬⊢ pf (τ , Γ⊢ƛσt:τ)
 
   ------------------------------------------------------------
   -- Inference algorithm
   ------------------------------------------------------------
 
-  infer : (Γ : Ctx n) → (t : Term n) → (Σ[ τ ∈ Type B ] (Γ ⊢ t ː τ)) ⊎ (Γ ⊬ t)
-  infer Γ (var x) = inj₁ (Γ ! x , var x)
-  infer Γ (ƛ σ t) with infer (Γ ,, σ) t
-  ... | inj₁ (τ , Γ,σ⊢t:τ ) = inj₁ ((σ ⇒ τ) , lam Γ,σ⊢t:τ)
-  ... | inj₂ pf = inj₂ (lam _ pf)
-  infer Γ (t₁ ∙ t₂) with infer Γ t₁ | infer Γ t₂
-  ... | inj₁ ((σ ⇒ τ) , Γ⊢t₁:σ⇒τ) | inj₁ (τ₂ , Γ⊢t₂:τ₂) = {!!} -- with σ Ty≟ τ₂
-  -- infer Γ (t₁ ∙ t₂) | inj₁ ((σ ⇒ τ) , Γ⊢t₁:σ⇒τ) | inj₁ (τ₂ , Γ⊢t₂:τ₂) | eq = ?
-  -- infer Γ (t₁ ∙ t₂) | inj₁ (base x , Γ⊢t₁:τ₁) | inj₁ (τ₂ , Γ⊢t₂:τ₂) = {!!}
-  ... | inj₁ (□ τ₁ , Γ⊢t₁:τ₁) | inj₁ (τ₂ , Γ⊢t₂:τ₂) = {!!}
-  ... | inj₁ x | inj₂ y = {!!}
-  ... | inj₂ y₁ | y = {!!}
-  infer Γ (con x) = inj₁ (CTy x , con x)
+  -- infer : (Γ : Ctx n) → (t : Term n) → (Σ[ τ ∈ Type B ] (Γ ⊢ t ː τ)) ⊎ (Γ ⊬ t)
+  -- infer Γ (var x) = inj₁ (Γ ! x , var x)
+  -- infer Γ (ƛ σ t) with infer (Γ ,, σ) t
+  -- ... | inj₁ (τ , Γ,σ⊢t:τ ) = inj₁ ((σ ⇒ τ) , lam Γ,σ⊢t:τ)
+  -- ... | inj₂ pf = inj₂ (lam _ pf)
+  -- infer Γ (t₁ ∙ t₂) with infer Γ t₁ | infer Γ t₂
+  -- ... | inj₁ ((σ ⇒ τ) , Γ⊢t₁:σ⇒τ) | inj₁ (τ₂ , Γ⊢t₂:τ₂) = {!!} -- with σ Ty≟ τ₂
+  -- -- infer Γ (t₁ ∙ t₂) | inj₁ ((σ ⇒ τ) , Γ⊢t₁:σ⇒τ) | inj₁ (τ₂ , Γ⊢t₂:τ₂) | eq = ?
+  -- -- infer Γ (t₁ ∙ t₂) | inj₁ (base x , Γ⊢t₁:τ₁) | inj₁ (τ₂ , Γ⊢t₂:τ₂) = {!!}
+  -- ... | inj₁ (□ τ₁ , Γ⊢t₁:τ₁) | inj₁ (τ₂ , Γ⊢t₂:τ₂) = {!!}
+  -- ... | inj₁ x | inj₂ y = {!!}
+  -- ... | inj₂ y₁ | y = {!!}
+  -- infer Γ (con x) = inj₁ (CTy x , con x)
