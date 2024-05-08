@@ -394,7 +394,6 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
   ... | yes σ◃τ = yes (box σ◃τ)
 
   -- If there's a box only on the right, we can just use 'pure'.
-
   ◃-Dec (base b) (□ τ) with ◃-Dec (base b) τ
   ... | no ¬b◃τ = no (contraposition B◃□-inv ¬b◃τ)
   ... | yes b◃τ = yes (pure b◃τ)
@@ -402,16 +401,21 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
   ... | no ¬σ₁⇒σ₂◃τ = no (contraposition ⇒◃□-inv ¬σ₁⇒σ₂◃τ)
   ... | yes σ₁⇒σ₂◃τ = yes (pure σ₁⇒σ₂◃τ)
 
-  -- And now for the interesting cases!
+  -- And now for the interesting cases, which of course involve
+  -- function types.
 
   -- The only way to get this next case is to first push the box down,
-  -- i.e.  use the ap rule.  However, we have to figure out σ₁ and σ₂.
-  -- They must be whatever is on the LHS and RHS of σ (which must have
-  -- a ⇒ shape), but with possibly different numbers of □ ...
+  -- i.e. the outermost constructor of any proof must be ap.  However,
+  -- we have to figure out σ₁ and σ₂.  They must be whatever is on the
+  -- LHS and RHS of σ (which must have a ⇒ shape), but with possibly
+  -- different numbers of □ ...
   ◃-Dec (□ σ) (τ₁ ⇒ τ₂) = {!!}
 
-  -- Can't just decompose, might have to do some ap□ first (but we
-  -- have to guess how many...)
+  -- We might be tempted here to just check whether τ₁ ◃ σ₁ and σ₂ ◃
+  -- τ₂, and then use the 'arr' rule.  However, that would not be
+  -- correct; we might have to do some ap□ first (but we have to guess
+  -- how many...)  For example, (A → B) ◃ (□A → □B) (via pure + ap),
+  -- but □A ◃ A does not hold.
   ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) = {!!}
 
   <:-Dec : Decidable _<:_
