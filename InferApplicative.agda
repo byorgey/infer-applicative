@@ -445,14 +445,48 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
     R⁻ : {n : ℕ} {l r r′ : BoxTree}
       → (r ◂⁻ r′) → (□⋆ n (l ⇒ r)) ◂⁻ (□⋆ n (l ⇒ r′))
 
+  -- Theorem: if the boxtrees for two types are related by ◂⁺ , then
+  -- the first is a subtype of the second.
+
+  □^-<: : {n : ℕ} {σ τ : Type B} → σ <: τ → □^ n ∙ σ <: □^ n ∙ τ
+  □^-<: {zero} σ<:τ = σ<:τ
+  □^-<: {suc n} σ<:τ = box (□^-<: σ<:τ)
+
+  □□^n-assoc : (n : ℕ) (τ : Type B) → □ (□^ n ∙ τ) ≡ □^ n ∙ (□ τ)
+  □□^n-assoc zero _ = refl
+  □□^n-assoc (suc n) _ = cong □_ (□□^n-assoc n _)
+
+  ◂⁺→<: : {s t : BoxTree} → s ◂⁺ t → BoxTree→Type s <: BoxTree→Type t
+  ◂⁻→<: : {s t : BoxTree} → s ◂⁻ t → BoxTree→Type t <: BoxTree→Type s
+
+  ◂⁺→<: pure⁺ = pure
+  ◂⁺→<: (ap⁺ {n} {j} {k} {l} {r})
+    rewrite (□□^n-assoc n (□^ j ∙ BoxTreeNode→Type l ⇒ □^ k ∙ BoxTreeNode→Type r))
+    = □^-<: ap
+  ◂⁺→<: (L⁺ l◂l′) = □^-<: (arr (◂⁻→<: l◂l′) rfl)
+  ◂⁺→<: (R⁺ r◂r′) = □^-<: (arr rfl (◂⁺→<: r◂r′))
+
+  ◂⁻→<: pure⁻ = pure
+  ◂⁻→<: (ap⁻ {n} {j} {k} {l} {r})
+    rewrite (□□^n-assoc n (□^ j ∙ BoxTreeNode→Type l ⇒ □^ k ∙ BoxTreeNode→Type r))
+    = □^-<: ap
+  ◂⁻→<: (L⁻ l◂l′) = □^-<: (arr (◂⁺→<: l◂l′) rfl)
+  ◂⁻→<: (R⁻ r◂r′) = □^-<: (arr rfl (◂⁻→<: r◂r′))
+
   -- Finally, we can chain together a bunch of transformations.
 
-  -- Theorem: if the boxtrees for two types are related by ◂⁺ , then
-  -- the first is a subtype of the second
+  data _◂⋆_ : BoxTree → BoxTree → Set where
+    rfl : {t : BoxTree} → t ◂⋆ t
+    step : {s t u : BoxTree} → s ◂⁺ t → t ◂⋆ u → s ◂⋆ u
 
-  -- Seems like this will be a lot of work to prove.  Is it worth it?
-  -- Does this help us come up with an algorithm?  Will need to think
-  -- about it more.
+  ◂⋆→<: : {s t : BoxTree} → s ◂⋆ t → BoxTree→Type s <: BoxTree→Type t
+  ◂⋆→<: rfl = rfl
+  ◂⋆→<: (step s◂⁺t t◂⋆u) = tr (◂⁺→<: s◂⁺t ) (◂⋆→<: t◂⋆u)
+
+  -- The other direction should be possible too (if σ <: τ then
+  -- Type→BoxTree σ ◂⁺ Type→BoxTree τ), but probably a lot more work
+  -- to prove. Is it worth it?  Would it help us come up with a
+  -- decision/inference algorithm?  Will need to think about it more.
 
   --------------------------------------------------
   -- Subtyping is decidable
