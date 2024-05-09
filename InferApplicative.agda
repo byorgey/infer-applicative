@@ -377,6 +377,84 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
   □◃⇒-inv (ap□ {σ₁ = σ₁} {σ₂ = σ₂} f g) = σ₁ , σ₂ , pureL f , g
 
   --------------------------------------------------
+  -- BoxTrees
+
+  -- We can model types by binary trees with a natural number
+  -- (representing number of boxes) at each node, and base types at
+  -- leaves.
+
+  data BoxTreeNode : Set
+  data BoxTree : Set
+
+  data BoxTreeNode where
+    base : B → BoxTreeNode
+    _⇒_ : BoxTree → BoxTree → BoxTreeNode
+
+  data BoxTree where
+    □⋆ : ℕ → BoxTreeNode → BoxTree
+
+  numBoxes : Type B → ℕ
+  numBoxes (base _) = 0
+  numBoxes (_ ⇒ _) = 0
+  numBoxes (□ τ) = suc (numBoxes τ)
+
+  Type→BoxTree : Type B → BoxTree
+  Type→BoxTreeNode : Type B → BoxTreeNode
+
+  Type→BoxTree τ = □⋆ (numBoxes τ) (Type→BoxTreeNode τ)
+
+  Type→BoxTreeNode (base b) = base b
+  Type→BoxTreeNode (σ ⇒ τ) = Type→BoxTree σ ⇒ Type→BoxTree τ
+  Type→BoxTreeNode (□ τ) = Type→BoxTreeNode τ
+
+  BoxTree→Type : BoxTree → Type B
+  BoxTreeNode→Type : BoxTreeNode → Type B
+
+  BoxTree→Type (□⋆ n t) = □^ n ∙ BoxTreeNode→Type t
+  BoxTreeNode→Type (base b) = base b
+  BoxTreeNode→Type (l ⇒ r) = BoxTree→Type l ⇒ BoxTree→Type r
+
+  Type→BoxTreeNode→Type : (τ : Type B) → □^ numBoxes τ ∙ BoxTreeNode→Type (Type→BoxTreeNode τ) ≡ τ
+  Type→BoxTree→Type : (τ : Type B) → BoxTree→Type (Type→BoxTree τ) ≡ τ
+
+  Type→BoxTreeNode→Type (base b) = refl
+  Type→BoxTreeNode→Type (σ ⇒ τ) = cong₂ _⇒_ (Type→BoxTree→Type σ) (Type→BoxTree→Type τ)
+  Type→BoxTreeNode→Type (□ τ) = cong □_ (Type→BoxTreeNode→Type τ)
+  Type→BoxTree→Type = Type→BoxTreeNode→Type
+
+  -- Individual subtyping transformations on BoxTrees
+
+  data _◂⁺_ : BoxTree → BoxTree → Set
+  data _◂⁻_ : BoxTree → BoxTree → Set
+
+  data _◂⁺_ where
+    pure⁺ : {n : ℕ} {t : BoxTreeNode} → (□⋆ n t) ◂⁺ (□⋆ (suc n) t)
+    ap⁺ : {n j k : ℕ} {l r : BoxTreeNode}
+      → (□⋆ (suc n) (□⋆ j l ⇒ □⋆ k r)) ◂⁺ (□⋆ n (□⋆ (suc j) l ⇒ □⋆ (suc k) r))
+    L⁺ : {n : ℕ} {l l′ r : BoxTree}
+      → (l ◂⁻ l′) → (□⋆ n (l ⇒ r)) ◂⁺ (□⋆ n (l′ ⇒ r))
+    R⁺ : {n : ℕ} {l r r′ : BoxTree}
+      → (r ◂⁺ r′) → (□⋆ n (l ⇒ r)) ◂⁺ (□⋆ n (l ⇒ r′))
+
+  data _◂⁻_ where
+    pure⁻ : {n : ℕ} {t : BoxTreeNode} → (□⋆ (suc n) t) ◂⁻ (□⋆ n t)
+    ap⁻ : {n j k : ℕ} {l r : BoxTreeNode}
+      → (□⋆ n (□⋆ (suc j) l ⇒ □⋆ (suc k) r)) ◂⁻ (□⋆ (suc n) (□⋆ j l ⇒ □⋆ k r))
+    L⁻ : {n : ℕ} {l l′ r : BoxTree}
+      → (l ◂⁺ l′) → (□⋆ n (l ⇒ r)) ◂⁻ (□⋆ n (l′ ⇒ r))
+    R⁻ : {n : ℕ} {l r r′ : BoxTree}
+      → (r ◂⁻ r′) → (□⋆ n (l ⇒ r)) ◂⁻ (□⋆ n (l ⇒ r′))
+
+  -- Finally, we can chain together a bunch of transformations.
+
+  -- Theorem: if the boxtrees for two types are related by ◂⁺ , then
+  -- the first is a subtype of the second
+
+  -- Seems like this will be a lot of work to prove.  Is it worth it?
+  -- Does this help us come up with an algorithm?  Will need to think
+  -- about it more.
+
+  --------------------------------------------------
   -- Subtyping is decidable
 
   ◃-Dec : Decidable _◃_
