@@ -445,7 +445,49 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
     R⁻ : {n : ℕ} {l r r′ : BoxTree}
       → (r ◂⁻ r′) → (□⋆ n (l ⇒ r)) ◂⁻ (□⋆ n (l ⇒ r′))
 
-  -- Theorem: if the boxtrees for two types are related by ◂⁺ , then
+  -- We actually need only a single _◂_ relation where we flip the
+  -- direction for negative positions.  The above version makes it
+  -- more clear that we can think in terms of just transforming one
+  -- tree, with the transformations allowed being opposite (adding vs
+  -- subtracting) at positive and negative nodes, but _◂_ is easier to
+  -- work with.
+
+  data _◂_ : BoxTree → BoxTree → Set where
+    pure : {n : ℕ} {t : BoxTreeNode} → (□⋆ n t) ◂ (□⋆ (suc n) t)
+    ap : {n j k : ℕ} {l r : BoxTreeNode}
+      → (□⋆ (suc n) (□⋆ j l ⇒ □⋆ k r)) ◂ (□⋆ n (□⋆ (suc j) l ⇒ □⋆ (suc k) r))
+    L : {n : ℕ} {l l′ r : BoxTree}
+      → (l′ ◂ l) → (□⋆ n (l ⇒ r)) ◂ (□⋆ n (l′ ⇒ r))
+    R : {n : ℕ} {l r r′ : BoxTree}
+      → (r ◂ r′) → (□⋆ n (l ⇒ r)) ◂ (□⋆ n (l ⇒ r′))
+
+  ◂→◂⁺ : {s t : BoxTree} → (s ◂ t) → (s ◂⁺ t)
+  ◂→◂⁻ : {s t : BoxTree} → (s ◂ t) → (t ◂⁻ s)
+
+  ◂→◂⁺ pure = pure⁺
+  ◂→◂⁺ ap = ap⁺
+  ◂→◂⁺ (L s◂t) = L⁺ (◂→◂⁻ s◂t)
+  ◂→◂⁺ (R s◂t) = R⁺ (◂→◂⁺ s◂t)
+
+  ◂→◂⁻ pure = pure⁻
+  ◂→◂⁻ ap = ap⁻
+  ◂→◂⁻ (L s◂t) = L⁻ (◂→◂⁺ s◂t)
+  ◂→◂⁻ (R s◂t) = R⁻ (◂→◂⁻ s◂t)
+
+  ◂⁺→◂ : {s t : BoxTree} → (s ◂⁺ t) → (s ◂ t)
+  ◂⁻→◂ : {s t : BoxTree} → (s ◂⁻ t) → (t ◂ s)
+
+  ◂⁺→◂ pure⁺ = pure
+  ◂⁺→◂ ap⁺ = ap
+  ◂⁺→◂ (L⁺ s◂⁻t) = L (◂⁻→◂ s◂⁻t)
+  ◂⁺→◂ (R⁺ s◂⁺t) = R (◂⁺→◂ s◂⁺t)
+
+  ◂⁻→◂ pure⁻ = pure
+  ◂⁻→◂ ap⁻ = ap
+  ◂⁻→◂ (L⁻ s◂⁺t) = L (◂⁺→◂ s◂⁺t)
+  ◂⁻→◂ (R⁻ s◂⁻t) = R (◂⁻→◂ s◂⁻t)
+
+  -- Theorem: if the boxtrees for two types are related by ◂ , then
   -- the first is a subtype of the second.
 
   □^-<: : {n : ℕ} {σ τ : Type B} → σ <: τ → □^ n ∙ σ <: □^ n ∙ τ
@@ -456,37 +498,48 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
   □□^n-assoc zero _ = refl
   □□^n-assoc (suc n) _ = cong □_ (□□^n-assoc n _)
 
-  ◂⁺→<: : {s t : BoxTree} → s ◂⁺ t → BoxTree→Type s <: BoxTree→Type t
-  ◂⁻→<: : {s t : BoxTree} → s ◂⁻ t → BoxTree→Type t <: BoxTree→Type s
+  ◂→<: : {s t : BoxTree} → s ◂ t → BoxTree→Type s <: BoxTree→Type t
 
-  ◂⁺→<: pure⁺ = pure
-  ◂⁺→<: (ap⁺ {n} {j} {k} {l} {r})
+  ◂→<: pure = pure
+  ◂→<: (ap {n} {j} {k} {l} {r})
     rewrite (□□^n-assoc n (□^ j ∙ BoxTreeNode→Type l ⇒ □^ k ∙ BoxTreeNode→Type r))
     = □^-<: ap
-  ◂⁺→<: (L⁺ l◂l′) = □^-<: (arr (◂⁻→<: l◂l′) rfl)
-  ◂⁺→<: (R⁺ r◂r′) = □^-<: (arr rfl (◂⁺→<: r◂r′))
-
-  ◂⁻→<: pure⁻ = pure
-  ◂⁻→<: (ap⁻ {n} {j} {k} {l} {r})
-    rewrite (□□^n-assoc n (□^ j ∙ BoxTreeNode→Type l ⇒ □^ k ∙ BoxTreeNode→Type r))
-    = □^-<: ap
-  ◂⁻→<: (L⁻ l◂l′) = □^-<: (arr (◂⁺→<: l◂l′) rfl)
-  ◂⁻→<: (R⁻ r◂r′) = □^-<: (arr rfl (◂⁻→<: r◂r′))
+  ◂→<: (L l′◂l) = □^-<: (arr (◂→<: l′◂l) rfl)
+  ◂→<: (R r◂r′) = □^-<: (arr rfl (◂→<: r◂r′))
 
   -- Finally, we can chain together a bunch of transformations.
 
   data _◂⋆_ : BoxTree → BoxTree → Set where
     rfl : {t : BoxTree} → t ◂⋆ t
-    step : {s t u : BoxTree} → s ◂⁺ t → t ◂⋆ u → s ◂⋆ u
+    step : {s t u : BoxTree} → s ◂ t → t ◂⋆ u → s ◂⋆ u
+
+  _◂++_ : {s t u : BoxTree} → s ◂⋆ t → t ◂⋆ u → s ◂⋆ u
+  rfl ◂++ t◂u = t◂u
+  step stp s◂t ◂++ t◂u = step stp (s◂t ◂++ t◂u)
 
   ◂⋆→<: : {s t : BoxTree} → s ◂⋆ t → BoxTree→Type s <: BoxTree→Type t
   ◂⋆→<: rfl = rfl
-  ◂⋆→<: (step s◂⁺t t◂⋆u) = tr (◂⁺→<: s◂⁺t ) (◂⋆→<: t◂⋆u)
+  ◂⋆→<: (step s◂⁺t t◂⋆u) = tr (◂→<: s◂⁺t ) (◂⋆→<: t◂⋆u)
 
   -- The other direction should be possible too (if σ <: τ then
-  -- Type→BoxTree σ ◂⁺ Type→BoxTree τ), but probably a lot more work
+  -- Type→BoxTree σ ◂⋆ Type→BoxTree τ), but probably a lot more work
   -- to prove. Is it worth it?  Would it help us come up with a
   -- decision/inference algorithm?  Will need to think about it more.
+
+  -- Need to be able to distribute L⁺ / R⁺ etc. over an entire
+  -- ◂⋆-chain.  Maybe need to distinguish ◂⁺⋆ vs ◂⁻⋆ ?  Or maybe just
+  -- flip everything in the case of L⁺ ...
+
+  <:→◂⋆ : {σ τ : Type B} → σ <: τ → Type→BoxTree σ ◂⋆ Type→BoxTree τ
+  <:→◂⋆ rfl = rfl
+  <:→◂⋆ (tr σ<:τ τ<:υ) = (<:→◂⋆ σ<:τ) ◂++ (<:→◂⋆ τ<:υ)
+
+  -- Use ◂++ at the top level.  Distribute L⁺ / R⁺ over the IH
+  -- results.
+  <:→◂⋆ (arr τ₁<:σ₁ σ₂<:τ₂) = {!!}
+  <:→◂⋆ (box σ<:τ) = {!!}
+  <:→◂⋆ pure = step pure rfl
+  <:→◂⋆ ap = step ap rfl
 
   --------------------------------------------------
   -- Subtyping is decidable
