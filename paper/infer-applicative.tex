@@ -137,6 +137,39 @@
 
 \section{Introduction}
 
+If we want to add two numbers, we can write an expression like
+\[ |x + y|. \] But what if one of the numbers might not exist?  For
+example, perhaps the number was parsed from user input, which might
+not be in the right format.  We could represent the possibly-failing
+number using some kind of option type, such as |Maybe| in Haskell, XXX
+in other languages.  But now the simple expression |x + y| no longer
+typechecks, since |x| is (say) of type |Int|, whereas |y| has the
+incompatible type (say) |Maybe Int|.  Of course, we can pattern-match
+on $y$, taking an appropriate action in each case.  In Haskell, we
+might write this as
+\begin{verbatim}
+case y of
+  Nothing -> Nothing
+  Just n -> Just (x + n)
+\end{verbatim}
+but now the fact that we are essentially performing an addition
+operation has been obscured by a lot of syntax.
+
+In the Haskell community, \term{applicative functors}, first
+introduced by McBride and Paterson XXX cite, are a well-known
+solution to this situation.  An applicative functor is any type
+constructor $\square$ which supports operations |pure| and |ap| having
+the following types:
+
+|pure : t -> A t|
+|ap : A (s -> t) -> (A s -> A t)|
+
+|pure| gives us a way to inject plain values of type |t| into the type
+|A t|, and |ap| allows us to distribute |A| over arrows.  Together
+with some laws XXX.
+
+
+
 % The ``\verb|figure|'' environment should be used for figures. One or
 % more images can be placed within a figure. If your figure contains
 % third-party material, you must clearly identify it as such, as shown
