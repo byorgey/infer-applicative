@@ -7,4 +7,6 @@
 *.pdf
 *.cut
 
+paper/ott/*.tex
+
 acmart-primary
