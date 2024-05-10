@@ -50,6 +50,7 @@ grammar
     | []                  ::   :: box        {{ tex \abox }}
     | ->                  ::   :: arr        {{ tex \to }}
     | <:                  ::   :: subtype    {{ tex \mathrel{<:} }}
+    | <|                  ::   :: subtypet   {{ tex \vartriangleleft }}
 
   formula :: 'formula_' ::=
     | judgement           ::   :: judgement
@@ -81,11 +82,42 @@ defns
     ---------------------- :: arr
     S1 -> S2 <: T1 -> T2
 
+    S <: T
+    ------------ :: box
+    [] S <: [] T
+
     ----------- :: pure
     T <: [] T
 
     --------------------------- :: ap
     [] (S -> T) <: [] S -> [] T
+
+  defn
+    T1 <| T2 :: :: subt :: subt_  {{ com $[[T1]]$ is a subtype of $[[T2]]$ }} by
+
+    ------ :: refl
+    T <| T
+
+    T1 <| S1    S2 <| T2
+    ---------------------- :: arr
+    S1 -> S2 <| T1 -> T2
+
+    S <| T
+    ------------ :: box
+    [] S <| [] T
+
+    S <| T
+    --------- :: pure
+    S <| [] T
+
+    S <| S1 -> S2      [] S1 -> [] S2 <| T
+    --------------------------------------  :: ap
+    [] S <| T
+
+    S <| S1 -> S2      [] S1 -> [] S2 <| T
+    --------------------------------------  :: boxap
+    S <| T
+
 
 % % defns
 % %   Jtype :: '' ::=
