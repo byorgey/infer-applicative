@@ -1,10 +1,11 @@
-open import Function using (_∘_)
+open import Function using (_∘_ ; flip)
 open import Data.Bool
 open import Data.Nat
 open import Data.Fin hiding (_≥_)
 open import Data.Product using (Σ-syntax ; _,_)
 open import Data.Sum
 open import Data.Product
+open import Data.Maybe hiding (ap) renaming (map to mmap)
 open import Relation.Nullary.Negation
 open import Relation.Nullary.Decidable
 open import Data.Empty
@@ -511,35 +512,77 @@ module Infer (B : Set) (DecB : DecidableEquality B) (C : Set) (CTy : C → Type 
 
   data _◂⋆_ : BoxTree → BoxTree → Set where
     rfl : {t : BoxTree} → t ◂⋆ t
-    step : {s t u : BoxTree} → s ◂ t → t ◂⋆ u → s ◂⋆ u
+    _then_ : {s t u : BoxTree} → s ◂⋆ t → t ◂ u → s ◂⋆ u
 
+  cons : {s t u : BoxTree} → s ◂ t → t ◂⋆ u → s ◂⋆ u
+  cons s◂t rfl = rfl then s◂t
+  cons s◂t (t◂u then x) = cons s◂t t◂u then x
+
+  single : {s t : BoxTree} → s ◂ t → s ◂⋆ t
+  single s◂t = rfl then s◂t
+
+  -- Some helper/utility methods for dealing with ◂⋆ .
+
+  -- Append two transformation chains
   _◂++_ : {s t u : BoxTree} → s ◂⋆ t → t ◂⋆ u → s ◂⋆ u
-  rfl ◂++ t◂u = t◂u
-  step stp s◂t ◂++ t◂u = step stp (s◂t ◂++ t◂u)
+  s ◂++ rfl = s
+  s ◂++ (t then x) = (s ◂++ t) then x
 
+  -- Lifting transformation chains to act on subtrees.
+
+  inc□ : {m n : ℕ} {s t : BoxTreeNode} → □⋆ m s ◂ □⋆ n t → □⋆ (suc m) s ◂ □⋆ (suc n) t
+  inc□ pure = pure
+  inc□ ap = ap
+  inc□ (L s◂t) = L s◂t
+  inc□ (R s◂t) = R s◂t
+
+  map□ : {m n : ℕ} {s t : BoxTreeNode} → □⋆ m s ◂⋆ □⋆ n t → □⋆ (suc m) s ◂⋆ □⋆ (suc n) t
+  map□ rfl = rfl
+  map□ (_then_ {t = □⋆ m t′} s◂t x) = map□ s◂t then inc□ x
+
+  mapR : {s t u : BoxTree} → s ◂⋆ t → □⋆ 0 (u ⇒ s) ◂⋆ □⋆ 0 (u ⇒ t)
+  mapR rfl = rfl
+  mapR (s◂t then x) = mapR s◂t then R x
+
+  mapL : {s t u : BoxTree} → s ◂⋆ t → □⋆ 0 (t ⇒ u) ◂⋆ □⋆ 0 (s ⇒ u)
+  mapL rfl = rfl
+  mapL (s◂t then x) = cons (L x) (mapL s◂t)
+
+  -- We can now prove that chained transformation ◂⋆ is equivalent to
+  -- subtyping.
+
+  -- First direction: if s ◂⋆t then their corresponding types are
+  -- subtypes.
   ◂⋆→<: : {s t : BoxTree} → s ◂⋆ t → BoxTree→Type s <: BoxTree→Type t
   ◂⋆→<: rfl = rfl
-  ◂⋆→<: (step s◂⁺t t◂⋆u) = tr (◂→<: s◂⁺t ) (◂⋆→<: t◂⋆u)
+  ◂⋆→<: (s◂⋆t then t◂u) = tr (◂⋆→<: s◂⋆t ) (◂→<: t◂u)
 
-  -- The other direction should be possible too (if σ <: τ then
-  -- Type→BoxTree σ ◂⋆ Type→BoxTree τ), but probably a lot more work
-  -- to prove. Is it worth it?  Would it help us come up with a
-  -- decision/inference algorithm?  Will need to think about it more.
-
-  -- Need to be able to distribute L⁺ / R⁺ etc. over an entire
-  -- ◂⋆-chain.  Maybe need to distinguish ◂⁺⋆ vs ◂⁻⋆ ?  Or maybe just
-  -- flip everything in the case of L⁺ ...
-
+  -- And the other direction: if σ <: τ then Type→BoxTree σ ◂⋆
+  -- Type→BoxTree τ.
   <:→◂⋆ : {σ τ : Type B} → σ <: τ → Type→BoxTree σ ◂⋆ Type→BoxTree τ
   <:→◂⋆ rfl = rfl
   <:→◂⋆ (tr σ<:τ τ<:υ) = (<:→◂⋆ σ<:τ) ◂++ (<:→◂⋆ τ<:υ)
+  <:→◂⋆ (arr τ₁<:σ₁ σ₂<:τ₂) = mapL (<:→◂⋆ τ₁<:σ₁) ◂++ mapR (<:→◂⋆ σ₂<:τ₂)
+  <:→◂⋆ (box σ<:τ) = map□ (<:→◂⋆ σ<:τ)
+  <:→◂⋆ pure = single pure
+  <:→◂⋆ ap = single ap
 
-  -- Use ◂++ at the top level.  Distribute L⁺ / R⁺ over the IH
-  -- results.
-  <:→◂⋆ (arr τ₁<:σ₁ σ₂<:τ₂) = {!!}
-  <:→◂⋆ (box σ<:τ) = {!!}
-  <:→◂⋆ pure = step pure rfl
-  <:→◂⋆ ap = step ap rfl
+  -- Not sure how/whether this helps us build a decision algorithm for
+  -- subtyping but at least it's good to know for certain that my
+  -- intuitive understanding of subtyping as tree transformations is
+  -- correct.
+
+  -- ◂-SemiDec : (s t : BoxTree) → Maybe (s ◂⋆ t)
+  -- ◂-SemiDec-BTN : (s t : BoxTreeNode) → Maybe (□⋆ 0 s ◂⋆ □⋆ 0 t)
+
+  -- ◂-SemiDec (□⋆ (suc m) s) (□⋆ (suc n) t) = mmap map□ (◂-SemiDec (□⋆ m s) (□⋆ n t))
+  -- ◂-SemiDec (□⋆ zero s) (□⋆ (suc n) t) = mmap (_then pure) (◂-SemiDec (□⋆ zero s) (□⋆ n t))
+  -- ◂-SemiDec (□⋆ (suc m) s) (□⋆ zero (base _)) = nothing
+  -- ◂-SemiDec (□⋆ (suc m) s) (□⋆ zero (□⋆ n₁ t₁ ⇒ □⋆ n₂ t₂))
+  --   = mmap {!!} (◂-SemiDec (□⋆ (suc m) s) (□⋆ 1 (□⋆ n₁ t₁ ⇒ □⋆ n₂ t₂)))
+  -- ◂-SemiDec (□⋆ zero s) (□⋆ zero t) = ◂-SemiDec-BTN s t
+
+  -- ◂-SemiDec-BTN s t = {!!}
 
   --------------------------------------------------
   -- Subtyping is decidable
