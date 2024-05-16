@@ -6,6 +6,8 @@
 *.out
 *.pdf
 *.cut
+*.ptb
+*.tex
 
 paper/ott/*.tex
 

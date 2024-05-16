@@ -37,7 +37,7 @@ grammar
     | B                   ::   :: base                    {{ com base type }}
     | T1 -> T2            ::   :: arrow                   {{ com function type }}
     | [] T                ::   :: box                     {{ com box type }}
-    | ( T )               :: S :: paren
+    | ( T )               :: M :: paren
 
 %   G {{ tex \Gamma }} :: G_ ::=                          {{ com type context }}
 %     | empty               ::   :: em                      {{ com empty context }}
