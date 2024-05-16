@@ -1,7 +1,7 @@
 open import Function using (_∘_)
-open import Data.Bool
+open import Data.Bool hiding (_≤_)
 open import Data.Nat
-open import Data.Fin hiding (_≥_)
+open import Data.Nat.Properties
 open import Data.Product using (Σ-syntax ; _,_)
 open import Data.Sum
 open import Data.Product
@@ -11,6 +11,7 @@ open import Data.Empty
 open import Relation.Binary using (Decidable ; DecidableEquality)
 open import Relation.Binary.PropositionalEquality
 open import Relation.Binary.HeterogeneousEquality using (_≅_ ; refl) renaming (cong₂ to ≅cong₂)
+open import Data.Maybe using (Maybe ; just ; nothing) renaming (map to mmap)
 
 module Subtyping (B : Set) (DecB : DecidableEquality B) where
 
@@ -525,17 +526,69 @@ mapL (s◂t then x) = cons (L x) (mapL s◂t)
 -- intuitive understanding of subtyping as tree transformations is
 -- correct.
 
--- ◂-SemiDec : (s t : BoxTree) → Maybe (s ◂⋆ t)
--- ◂-SemiDec-BTN : (s t : BoxTreeNode) → Maybe (□⋆ 0 s ◂⋆ □⋆ 0 t)
+add□ : ℕ → BoxTree → BoxTree
+add□ m (□⋆ n t) = □⋆ (m + n) t
 
--- ◂-SemiDec (□⋆ (suc m) s) (□⋆ (suc n) t) = mmap map□ (◂-SemiDec (□⋆ m s) (□⋆ n t))
--- ◂-SemiDec (□⋆ zero s) (□⋆ (suc n) t) = mmap (_then pure) (◂-SemiDec (□⋆ zero s) (□⋆ n t))
--- ◂-SemiDec (□⋆ (suc m) s) (□⋆ zero (base _)) = nothing
--- ◂-SemiDec (□⋆ (suc m) s) (□⋆ zero (□⋆ n₁ t₁ ⇒ □⋆ n₂ t₂))
---   = mmap {!!} (◂-SemiDec (□⋆ (suc m) s) (□⋆ 1 (□⋆ n₁ t₁ ⇒ □⋆ n₂ t₂)))
--- ◂-SemiDec (□⋆ zero s) (□⋆ zero t) = ◂-SemiDec-BTN s t
+pull□ : (m : ℕ) → (t : BoxTree) → Maybe (Σ[ t′ ∈ BoxTree ] (add□ m t′) ◂⋆ t)
+pull□-BTN : (m : ℕ) → (t : BoxTreeNode) → Maybe (Σ[ t′ ∈ BoxTreeNode ] (□⋆ (suc m) t′ ◂⋆ □⋆ 0 t))
 
--- ◂-SemiDec-BTN s t = {!!}
+pull□ zero (□⋆ n t) = just (□⋆ n t , rfl)
+pull□ (suc m) (□⋆ (suc n) t) with pull□ m (□⋆ n t)
+... | nothing = nothing
+... | just (□⋆ n′ t′ , prf) = just (□⋆ n′ t′ , map□ prf)
+pull□ (suc m) (□⋆ zero t) with pull□-BTN m t
+... | nothing = nothing
+... | just (t′ , prf) = just (□⋆ 0 t′ , help m prf)
+  where
+    help : (m : ℕ) {t₁ t₂ : BoxTreeNode} → □⋆ (suc m) t₁ ◂⋆ □⋆ 0 t₂ → □⋆ (suc (m + 0)) t₁ ◂⋆ □⋆ 0 t₂
+    help m prf rewrite +-identityʳ m = prf
+
+pull□-BTN _ (base _) = nothing
+pull□-BTN m (s ⇒ t) with pull□ (suc m) t
+... | nothing = nothing
+... | just (□⋆ n t′ , prf) = just ((s ⇒ □⋆ n t′) , lemma m n prf)
+  where
+    lemma : (m n : ℕ) {s t : BoxTree} {t′ : BoxTreeNode} → □⋆ (suc (m + n)) t′ ◂⋆ t → □⋆ (suc m) (s ⇒ □⋆ n t′) ◂⋆ □⋆ 0 (s ⇒ t)
+    lemma zero n prf = {!!}
+    lemma (suc m) n prf = {!!}
+
+◂-SemiDec : (s t : BoxTree) → Maybe (s ◂⋆ t)
+◂-SemiDec-ℕ : (n : ℕ) → (s : BoxTreeNode) → (t : BoxTree) → Maybe (Σ[ r ∈ ℕ ] Σ[ k ∈ ℕ ] (r + k ≡ n) × (□⋆ k s ◂⋆ t))
+◂-SemiDec-BTN : (n : ℕ) → (s : BoxTreeNode) → (t : BoxTreeNode) → Maybe (Σ[ r ∈ ℕ ] Σ[ k ∈ ℕ ] (r + k ≡ n) × (□⋆ k s ◂⋆ □⋆ 0 t))
+◂-SemiDec-arr : (n : ℕ) → (s₁ s₂ t₁ t₂ : BoxTree) → Maybe (Σ[ r ∈ ℕ ] Σ[ k ∈ ℕ ] (r + k ≡ n) × (□⋆ k (s₁ ⇒ s₂) ◂⋆ □⋆ 0 (t₁ ⇒ t₂)))
+◂-SemiDec-arr-fixed : (n : ℕ) → (s₁ s₂ t₁ t₂ : BoxTree) → Maybe (□⋆ n (s₁ ⇒ s₂) ◂⋆ □⋆ 0 (t₁ ⇒ t₂))
+
+◂-SemiDec (□⋆ m s) t with ◂-SemiDec-ℕ m s t
+... | just (zero , _ , refl , □⋆ms◂⋆t) = just □⋆ms◂⋆t
+... | _ = nothing
+
+◂-SemiDec-ℕ (suc m) s (□⋆ (suc n) t) with ◂-SemiDec-ℕ m s (□⋆ n t)
+... | just (r , k , r+k≡m , □⋆ks◂⋆□⋆nt) = just (r , suc k , {!!} , (map□ □⋆ks◂⋆□⋆nt))
+... | nothing = nothing
+◂-SemiDec-ℕ zero s (□⋆ (suc n) t) with ◂-SemiDec-ℕ zero s (□⋆ n t)
+... | just (r , k , r+k≡m , □⋆ks◂⋆□⋆nt) = just (r , k , r+k≡m , (□⋆ks◂⋆□⋆nt then pure))
+... | nothing = nothing
+◂-SemiDec-ℕ m s (□⋆ 0 t) = ◂-SemiDec-BTN m s t
+
+◂-SemiDec-BTN n (base b₁) (base b₂) with DecB b₁ b₂
+... | no _ = nothing
+... | yes b₁≡b₂ rewrite b₁≡b₂ = just (n , 0 , {!!} , rfl)
+◂-SemiDec-BTN n (s₁ ⇒ s₂) (t₁ ⇒ t₂) = ◂-SemiDec-arr n s₁ s₂ t₁ t₂
+◂-SemiDec-BTN _ _ _ = nothing
+
+◂-SemiDec-arr zero s₁ s₂ t₁ t₂ with ◂-SemiDec-arr-fixed 0 s₁ s₂ t₁ t₂
+... | just prf = just (0 , 0 , refl , prf)
+... | nothing = nothing
+◂-SemiDec-arr (suc n) s₁ s₂ t₁ t₂ with ◂-SemiDec-arr-fixed (suc n) s₁ s₂ t₁ t₂ | ◂-SemiDec-arr n s₁ s₂ t₁ t₂
+... | just prf | _ = just (0 , suc n , refl , prf)
+... | nothing | just (r , k , r+k≡sn , prf) = just ( suc r , k , cong suc r+k≡sn , prf)
+... | nothing | nothing = nothing
+
+◂-SemiDec-arr-fixed n s₁ s₂ (□⋆ nt₁ t₁) t₂ with ◂-SemiDec-ℕ nt₁ t₁ (add□ n s₁)
+... | nothing = nothing
+... | just (_ , n₁ , eq , prf) with pull□ n₁ t₂
+...   | nothing = nothing
+...   | just (t₂′ , prf₂) = {!!}
 
 --------------------------------------------------
 -- Subtyping is decidable

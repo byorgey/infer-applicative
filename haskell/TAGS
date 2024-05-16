@@ -1,0 +1,36 @@
+
+./InferApplicative.hs,745
+module InferApplicative InferApplicative0,1
+data N N5,6
+data N = Z Z5,6
+data N = Z | S S5,6
+instance Enum Enum N7,8
+  succ succ8,9
+  pred pred9,10
+  toEnum toEnum11,12
+  fromEnum fromEnum12,13
+instance Num Num N15,16
+  fromInteger fromInteger16,17
+  (+(+)19,20
+(â(â¸)24,25
+S S25,26
+n n26,27
+Z Z27,28
+(.(.+)29,30
+Z Z30,31
+(S(Sn)31,32
+data Base Base33,34
+data Base = Nat Nat33,34
+data Base = Nat | Chr Chr33,34
+data BoxTree BoxTree35,36
+  Boxes Boxes36,37
+data BoxTreeNode BoxTreeNode39,40
+  Base Base40,41
+  (:->:) )41,42
+box box44,45
+isSubtype isSubtype48,49
+check check53,54
+checkN checkN57,58
+pullBoxes pullBoxes71,72
+pullBoxesNode pullBoxesNode76,77
+checkArr checkArr82,83
