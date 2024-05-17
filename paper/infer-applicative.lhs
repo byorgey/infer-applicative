@@ -282,7 +282,12 @@ XXX Examples showing that we can't infer monads.
 
 \section{Subtyping for applicative inference}
 
-We begin with a simple type system, shown in XXX Fig. \ref{fig:types}.
+We begin with a simple collection of types, shown in \pref{fig:types},
+consisting of an arbitrary collection of base types, function types,
+and box types.  For now, we do not include any other type formers such
+as sum or product types; boxes and arrows are enough trouble on their
+own!  We will return to consider adding sum and product types in
+section XXX.
 \begin{figure}[htp]
   \centering
   \ottgrammartabular{\otttype\ottafterlastrule}
@@ -290,25 +295,27 @@ We begin with a simple type system, shown in XXX Fig. \ref{fig:types}.
   \label{fig:types}
 \end{figure}
 
-Now we define a subtyping relation over these types, shown in XXX
-Fig. \ref{fig:subtyping}.  The first four rules are fairly standard:
-the subtyping relation is reflexive and transitive, has the usual
+XXX since we want to be able to implicitly XXX, natural to consider
+encoding this via a subtyping relation, defined in
+\pref{fig:subtyping}.  The first four rules are fairly standard: the
+subtyping relation is reflexive and transitive, has the usual
 contravariant/covariant rule for function arrows, and is a congruence
-with respect to |A| (any applicative functor must in fact be a
+with respect to box (any applicative functor must in fact be a
 (covariant) functor, so such a congruence rule always makes sense).
 The last two rules are more interesting, and simply reflect the fact
 that we want to be able to implicitly insert |pure| and |ap| as
 needed.  Thus, we consider any type |t| a subtype of |A t|
 (corresponding to an implicit call to |pure|), and similarly we
 consider |A (s -> t)| a subtype of |(A s -> A t)| (corresponding to
-|ap|).
-
+an implicit |ap|).
 \begin{figure}[htp]
   \centering
   \ottdefnsub{}
   \caption{Subtyping}
   \label{fig:subtyping}
 \end{figure}
+As an example, XXX use example from a previous section, but recast it
+in more formal notation.
 
 XXX now introduce terms with standard type system.
 XXX have to add basic polymorphism so we can give types to |pure| and
@@ -322,8 +329,11 @@ typechecks in system with no subtyping but two extra constants for
 \section{Inversion lemmas / structure}
 
 Looking at the subtyping rules, it is intuitively clear that all the
-rules preserve the ``shape''.  Concretely, let |erase(t)| denote the
-\emph{box erasure} of |t| which simply removes all the boxes:
+rules preserve the ``shape'': base types can only be subtypes of other
+base types (possibly with boxes on top); a type with an arrow will
+always be a subtype of other types with arrows; and so on.  To
+formalize this intuition, let |erase(t)| denote the \emph{box erasure}
+of |t|, which simply removes all the boxes (XXX put this in a figure):
 \begin{gather*}
   |erase(B) = B| \\
   |erase(s -> t) = erase(s) -> erase(t)| \\
@@ -355,20 +365,20 @@ XXX try to prove some inversion lemmas.
 \end{lem}
 
 This turns out to be true, but it is very difficult to prove directly!
-The definition of subtyping in \ref{fig:subtyping} has the advantage
+The definition of subtyping in \pref{fig:subtyping} has the advantage
 of being simple and obvious: it is nothing more than the reflexive,
-transitive closure of the relation which does the obvious structural
-thing on arrows and boxes, and includes axioms for our desired
-implicit coercions.  However, the transitivity rule is extremely
-non-syntax-directed and makes subtyping difficult to reason about: at
-every step we must take into account or rule out the possibility of
-inserting extra steps via transitivity.  XXX corresponds to a ``cut
-rule'' in some sort of modal logic.
+transitive closure of the relation which includes axioms for our
+desired implicit coercions and is a congruence on boxes and arrows.
+However, the transitivity rule is extremely non-syntax-directed and
+makes subtyping difficult to reason about: at every step we must take
+into account or rule out the possibility of inserting extra steps via
+transitivity.  XXX corresponds to a ``cut rule'' in some sort of modal
+logic.
 
 \section{Cut-free subtyping}
 
 We therefore present an alternative, ``cut-free'' version of the
-subtyping relation, shown in XXX Fig. \ref{fig:tf-subtyping}.  The
+subtyping relation, shown in \pref{fig:tf-subtyping}.  The
 rules for reflexivity and congruence are the same, whereas the rules
 for |pure| and |ap| have been modified to ``bake in'' transitivity.
 Note that the only axiom in this system is reflexivity.  Curiously, we
@@ -377,7 +387,8 @@ combination of |pure| and |ap|, where we first use |pure| to show |s
 << A s|, then use |ap| to push the box down through an arrow.  It is
 possible that there is a simpler variant of this system with only a
 single rule for |ap|, but this is the only way I was able to make the
-proof go through!
+proof go through!  XXX could have PureL rule, then rebuild PUREAP as
+PureL + AP, but PureL rule was very difficult to work with.
 
 \begin{figure}[htp]
   \centering
@@ -453,6 +464,9 @@ Incorporate product and sum types:
   \item |zip : A a * A b -> A (a * b)| can be defined using
     |Applicative|
   \item Allow boxes to be pushed through pair types either way?
+    Corresponds to a new kind of binary tree node which preserves
+    polarity on both branches, and can distribute or collect boxes in
+    either direction.
   \end{itemize}
 \item Sum types:
   \begin{itemize}
@@ -461,6 +475,9 @@ Incorporate product and sum types:
     everything! e.g. imagine |A = IO|.  Then this would say given an
     |IO| action that returns |a + b|, we can decide up front (without
     running it!) whether it is going to return |Left| or |Right|.
+  \item Would correspond to a new binary tree node which preserves
+    polarity, and only allows pulling boxes up at positive nodes, and
+    pushing down at negative nodes.
   \end{itemize}
 \item Why are product and sum types so different?  Products are
   special because they are adjoint to arrows.
