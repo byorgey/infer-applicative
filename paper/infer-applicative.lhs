@@ -49,9 +49,11 @@
 %include polycode.fmt
 
 %format forall = "\forall"
+%format erase(t) = "\lfloor" t "\rfloor"
 %format A = "\square\!"
 %format <$> = "\mathbin{\langle \$ \rangle}"
 %format <*> = "\mathbin{\langle * \rangle}"
+%format * = "\mathbin{\times}"
 %format s = "\sigma"
 %format t = "\tau"
 %format << = "\vartriangleleft"
@@ -317,8 +319,42 @@ automatically insert coercions, i.e. translate it into term that
 typechecks in system with no subtyping but two extra constants for
 |pure| and |ap|.
 
-\section{Cut-free subtyping}
+\section{Inversion lemmas / structure}
 
+Looking at the subtyping rules, it is intuitively clear that all the
+rules preserve the ``shape''.  Concretely, let |erase(t)| denote the
+\emph{box erasure} of |t| which simply removes all the boxes:
+\begin{gather*}
+  |erase(B) = B| \\
+  |erase(s -> t) = erase(s) -> erase(t)| \\
+  |erase(A t) = erase(t)|
+\end{gather*}
+Then we can easily prove the following lemma:
+
+\begin{lem}
+  If |s <: t| then |s| and |t| have the same underlying shape, that
+  is, |erase(s) = erase(t)|.
+\end{lem}
+
+\begin{proof}
+  Easy proof by induction on subtyping derivations.
+\end{proof}
+
+XXX try to prove some inversion lemmas.
+
+\begin{lem}[Left pure]
+  If |A s <: t|, then |s <: t|.
+\end{lem}
+
+\begin{proof}
+  XXX Use transitivity with |pure|.
+\end{proof}
+
+\begin{lem}[Box inversion]
+  If |A s <: A t|, then |s <: t|.
+\end{lem}
+
+This turns out to be true, but it is very difficult to prove directly!
 The definition of subtyping in \ref{fig:subtyping} has the advantage
 of being simple and obvious: it is nothing more than the reflexive,
 transitive closure of the relation which does the obvious structural
@@ -329,14 +365,19 @@ every step we must take into account or rule out the possibility of
 inserting extra steps via transitivity.  XXX corresponds to a ``cut
 rule'' in some sort of modal logic.
 
+\section{Cut-free subtyping}
+
 We therefore present an alternative, ``cut-free'' version of the
 subtyping relation, shown in XXX Fig. \ref{fig:tf-subtyping}.  The
-rules for reflexivity and congruence are the same, whereas the rules for
-|pure| and |ap| have been modified to ``bake in'' transitivity.
-Curiously, we need two variants of the rule for |ap|; the second
-represents a combination of |pure| and |ap|, where we first use |pure|
-to show |s << A s|, then use |ap| to push the box down through an
-arrow.
+rules for reflexivity and congruence are the same, whereas the rules
+for |pure| and |ap| have been modified to ``bake in'' transitivity.
+Note that the only axiom in this system is reflexivity.  Curiously, we
+need two variants of the rule for |ap|; the second represents a
+combination of |pure| and |ap|, where we first use |pure| to show |s
+<< A s|, then use |ap| to push the box down through an arrow.  It is
+possible that there is a simpler variant of this system with only a
+single rule for |ap|, but this is the only way I was able to make the
+proof go through!
 
 \begin{figure}[htp]
   \centering
@@ -359,18 +400,9 @@ arrow.
 
 Note SUBTPure represents composing on the right with |pure|.  An
 earlier version of the system also had PUREL, composing on left with
-|pure| (show rule).  However, it created lots of problems.  Turns out
-to be admissible.
+|pure| (show rule).  However, it created lots of problems.
 
-\begin{lem}[Left pure]
-  If |A s <: t|, then |s <: t|.
-\end{lem}
-
-\begin{proof}
-  XXX
-\end{proof}
-
-XXX use to derive some inversion lemmas.
+XXX use to derive more inversion lemmas.
 
 XXX first lemma says that whenever we have a box on the right but no
 boxes on the left, we can get rid of the box; i.e. any proof of this
@@ -387,6 +419,7 @@ Proof: more difficult.  Uses PureL, other inversion lemma.
 
 In this section, we develop another model of subtyping.
 
+XXX we know if |s <: t| then they have the same shape.
 
 \begin{thm}[Subtyping is decidable]
   For any types |s| and |t|, we can effectively decide whether |s <: t|.
@@ -408,7 +441,30 @@ In this section, we develop another model of subtyping.
 %   \Description{A woman and a girl in white dresses sit in an open car.}
 % \end{figure}
 
+\section{Future work}
 
+Incorporate product and sum types:
+
+\begin{itemize}
+\item Product types:
+  \begin{itemize}
+  \item |unzip : A (a * b) -> A a * A b| can be defined using
+    only |Functor|
+  \item |zip : A a * A b -> A (a * b)| can be defined using
+    |Applicative|
+  \item Allow boxes to be pushed through pair types either way?
+  \end{itemize}
+\item Sum types:
+  \begin{itemize}
+  \item |A a + A b -> A (a + b)| can be defined using only |Functor|
+  \item |A (a + b) -> A a + A b| cannot be defined, and would break
+    everything! e.g. imagine |A = IO|.  Then this would say given an
+    |IO| action that returns |a + b|, we can decide up front (without
+    running it!) whether it is going to return |Left| or |Right|.
+  \end{itemize}
+\item Why are product and sum types so different?  Products are
+  special because they are adjoint to arrows.
+\end{itemize}
 
 \begin{acks}
 Acknowledgements.

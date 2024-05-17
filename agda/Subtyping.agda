@@ -6,7 +6,7 @@ open import Data.Product using (Σ-syntax ; _,_)
 open import Data.Sum
 open import Data.Product
 open import Relation.Nullary.Negation
-open import Relation.Nullary.Decidable
+open import Relation.Nullary.Decidable using (yes ; no)
 open import Data.Empty
 open import Relation.Binary using (Decidable ; DecidableEquality)
 open import Relation.Binary.PropositionalEquality
@@ -70,6 +70,15 @@ infix 1 _<:_
 --------------------------------------------------
 -- Some inversion lemmas about subtyping
 
+-- Subtypes have the same shape
+<:→⌊⌋ : {σ τ : Ty} → σ <: τ → ⌊ σ ⌋ ≡ ⌊ τ ⌋
+<:→⌊⌋ rfl = refl
+<:→⌊⌋ (tr σ<:τ τ<:υ) = trans (<:→⌊⌋ σ<:τ) (<:→⌊⌋ τ<:υ)
+<:→⌊⌋ (arr τ₁<:σ₁ σ₂<:τ₂) = cong₂ _⇒_ (sym (<:→⌊⌋ τ₁<:σ₁)) (<:→⌊⌋ σ₂<:τ₂)
+<:→⌊⌋ (box σ<:τ) = <:→⌊⌋ σ<:τ
+<:→⌊⌋ pure = refl
+<:→⌊⌋ ap = refl
+
 <:B-inv : {τ : Ty} {b : B} → (τ <: base b) → (τ ≡ base b)
 <:B-inv rfl = refl
 <:B-inv (tr τ<:τ₁ τ₁<:b) rewrite <:B-inv τ₁<:b = <:B-inv τ<:τ₁
@@ -122,60 +131,6 @@ B<:□-inv b<:□τ with B<:-inv b<:□τ IsBase
 
 ¬B<:⇒ : {b : B} {τ₁ τ₂ : Ty} → ¬ (base b <: τ₁ ⇒ τ₂)
 ¬B<:⇒ = ¬LB<:⇒ IsBase
-
-data TyShape : Set where
-  base : B → TyShape
-  _⇒_ : TyShape → TyShape → TyShape
-
--- A ShapedTy is a type, but indexed by its shape.  Not sure whether we really need this.
-data ShapedTy : TyShape → Set where
-  base : (b : B) → ShapedTy (base b)
-  _⇒_ : {l : TyShape} → ShapedTy l → {r : TyShape} → ShapedTy r → ShapedTy (l ⇒ r)
-  □_ : {t : TyShape} → ShapedTy t → ShapedTy t
-
-⟦_⟧ : {t : TyShape} → ShapedTy t → Ty
-⟦ base b ⟧ = base b
-⟦ l ⇒ r ⟧ = ⟦ l ⟧ ⇒ ⟦ r ⟧
-⟦ □ t ⟧ = □ ⟦ t ⟧
-
-⟨_⟩ : Ty → TyShape
-⟨ base b ⟩ = base b
-⟨ σ ⇒ τ ⟩ = ⟨ σ ⟩ ⇒ ⟨ τ ⟩
-⟨ □ τ ⟩ = ⟨ τ ⟩
-
-⟪_⟫ : (τ : Ty) → ShapedTy ⟨ τ ⟩
-⟪ base b ⟫ = base b
-⟪ σ ⇒ τ ⟫ = ⟪ σ ⟫ ⇒ ⟪ τ ⟫
-⟪ □ τ ⟫ = □ ⟪ τ ⟫
-
-_≡⟦⟪⟫⟧ : (τ : Ty) → τ ≡ ⟦ ⟪ τ ⟫ ⟧
-base b ≡⟦⟪⟫⟧  = refl
-(σ ⇒ τ) ≡⟦⟪⟫⟧  = cong₂ _⇒_ (σ ≡⟦⟪⟫⟧) (τ ≡⟦⟪⟫⟧)
-(□ τ) ≡⟦⟪⟫⟧ = cong □_ (τ ≡⟦⟪⟫⟧)
-
-_≡⟨⟦⟧⟩ : {s : TyShape} → (t : ShapedTy s) → s ≡ ⟨ ⟦ t ⟧ ⟩
-base b ≡⟨⟦⟧⟩ = refl
-(l ⇒ r) ≡⟨⟦⟧⟩ = cong₂ _⇒_ (l ≡⟨⟦⟧⟩) (r ≡⟨⟦⟧⟩)
-□ t ≡⟨⟦⟧⟩ = t ≡⟨⟦⟧⟩
-
--- soundness?  Not sure how to express this so it typechecks.  Tried using heterogeneous equality
--- but not yet able to figure out how to make the node case go through.
-
--- _≅⟪⟦⟧⟫ : {s : TyShape} → (t : ShapedTy s) → t ≅ ⟪ ⟦ t ⟧ ⟫
--- base b ≅⟪⟦⟧⟫ = refl
--- _≅⟪⟦⟧⟫ {node lt rt} (node l r) with l ≡⟨⟦⟧⟩
--- ... | eq = {!!}
--- box t ≅⟪⟦⟧⟫ = {!!}
-
--- Theorem: if σ <: τ, then σ and τ have the same underlying TyShape.
-
-<:→⟨⟩ : {σ τ : Ty} → σ <: τ → ⟨ σ ⟩ ≡ ⟨ τ ⟩
-<:→⟨⟩ rfl = refl
-<:→⟨⟩ (tr σ<:τ₁ τ₁<:τ) = trans (<:→⟨⟩ σ<:τ₁) (<:→⟨⟩ τ₁<:τ)
-<:→⟨⟩ (arr τ₁<:σ₁ σ₂<:τ₂) = cong₂ _⇒_ (sym (<:→⟨⟩ τ₁<:σ₁)) (<:→⟨⟩ σ₂<:τ₂)
-<:→⟨⟩ (box σ<:τ) = <:→⟨⟩ σ<:τ
-<:→⟨⟩ pure = refl
-<:→⟨⟩ ap = refl
 
 ------------------------------------------------------------
 -- Transitivity-free subtyping
@@ -278,18 +233,23 @@ data _◃_ : Ty → Ty → Set where
 -- We went to a lot of trouble to get rid of pureL, but sometimes we
 -- really want it!
 
+-- We can prove it the hard way:
+-- pureL : {σ τ : Ty} → □ σ ◃ τ → σ ◃ τ
+-- pureL rfl = pure rfl
+-- pureL (box σ◃τ) = pure σ◃τ
+-- pureL (pure □σ◃τ) = pure (pureL □σ◃τ)
+-- pureL (ap f g) = ap□ f g
+-- pureL (ap□ f g) = ap□ (pureL f) g
+
+-- Or the easy way:
 pureL : {σ τ : Ty} → □ σ ◃ τ → σ ◃ τ
-pureL rfl = pure rfl
-pureL (box σ◃τ) = pure σ◃τ
-pureL (pure □σ◃τ) = pure (pureL □σ◃τ)
-pureL (ap f g) = ap□ f g
-pureL (ap□ f g) = ap□ (pureL f) g
+pureL □σ◃τ = <:→◃ (tr pure (◃→<: □σ◃τ))
 
 --------------------------------------------------
 -- More lemmas about _◃_
 
-◃→⟨⟩ : {σ τ : Ty} → σ ◃ τ → ⟨ σ ⟩ ≡ ⟨ τ ⟩
-◃→⟨⟩ = <:→⟨⟩ ∘ ◃→<:
+◃→⟨⟩ : {σ τ : Ty} → σ ◃ τ → ⌊ σ ⌋ ≡ ⌊ τ ⌋
+◃→⟨⟩ = <:→⌊⌋ ∘ ◃→<:
 
 ◃B-inv : {τ : Ty} {b : B} → τ ◃ base b → τ ≡ base b
 ◃B-inv = <:B-inv ∘ ◃→<:

@@ -1,7 +1,7 @@
 open import Data.Product
 open import Relation.Binary.PropositionalEquality
 open import Relation.Binary using (DecidableEquality)
-open import Relation.Nullary.Decidable
+open import Relation.Nullary.Decidable using (yes ; no)
 
 module Types (B : Set) (DecB : DecidableEquality B) where
 
@@ -43,3 +43,12 @@ base-inj refl = refl
 ≡Ty-Dec (□ τ₁) (□ τ₂) with ≡Ty-Dec τ₁ τ₂
 ... | no τ₁≢τ₂ = no (λ eq → τ₁≢τ₂ (□-inj eq))
 ... | yes τ₁≡τ₂ = yes (cong □_ τ₁≡τ₂)
+
+------------------------------------------------------------
+-- Box erasure
+------------------------------------------------------------
+
+⌊_⌋ : Ty → Ty
+⌊ base b ⌋ = base b
+⌊ σ ⇒ τ ⌋ = ⌊ σ ⌋ ⇒ ⌊ τ ⌋
+⌊ □ τ ⌋ = ⌊ τ ⌋
