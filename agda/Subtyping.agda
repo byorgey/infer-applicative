@@ -486,116 +486,116 @@ mapL (s◂t then x) = cons (L x) (mapL s◂t)
 -- intuitive understanding of subtyping as tree transformations is
 -- correct.
 
-add□ : ℕ → BoxTree → BoxTree
-add□ m (□⋆ n t) = □⋆ (m + n) t
+-- add□ : ℕ → BoxTree → BoxTree
+-- add□ m (□⋆ n t) = □⋆ (m + n) t
 
-pull□ : (m : ℕ) → (t : BoxTree) → Maybe (Σ[ t′ ∈ BoxTree ] (add□ m t′) ◂⋆ t)
-pull□-BTN : (m : ℕ) → (t : BoxTreeNode) → Maybe (Σ[ t′ ∈ BoxTreeNode ] (□⋆ (suc m) t′ ◂⋆ □⋆ 0 t))
+-- pull□ : (m : ℕ) → (t : BoxTree) → Maybe (Σ[ t′ ∈ BoxTree ] (add□ m t′) ◂⋆ t)
+-- pull□-BTN : (m : ℕ) → (t : BoxTreeNode) → Maybe (Σ[ t′ ∈ BoxTreeNode ] (□⋆ (suc m) t′ ◂⋆ □⋆ 0 t))
 
-pull□ zero (□⋆ n t) = just (□⋆ n t , rfl)
-pull□ (suc m) (□⋆ (suc n) t) with pull□ m (□⋆ n t)
-... | nothing = nothing
-... | just (□⋆ n′ t′ , prf) = just (□⋆ n′ t′ , map□ prf)
-pull□ (suc m) (□⋆ zero t) with pull□-BTN m t
-... | nothing = nothing
-... | just (t′ , prf) = just (□⋆ 0 t′ , help m prf)
-  where
-    help : (m : ℕ) {t₁ t₂ : BoxTreeNode} → □⋆ (suc m) t₁ ◂⋆ □⋆ 0 t₂ → □⋆ (suc (m + 0)) t₁ ◂⋆ □⋆ 0 t₂
-    help m prf rewrite +-identityʳ m = prf
+-- pull□ zero (□⋆ n t) = just (□⋆ n t , rfl)
+-- pull□ (suc m) (□⋆ (suc n) t) with pull□ m (□⋆ n t)
+-- ... | nothing = nothing
+-- ... | just (□⋆ n′ t′ , prf) = just (□⋆ n′ t′ , map□ prf)
+-- pull□ (suc m) (□⋆ zero t) with pull□-BTN m t
+-- ... | nothing = nothing
+-- ... | just (t′ , prf) = just (□⋆ 0 t′ , help m prf)
+--   where
+--     help : (m : ℕ) {t₁ t₂ : BoxTreeNode} → □⋆ (suc m) t₁ ◂⋆ □⋆ 0 t₂ → □⋆ (suc (m + 0)) t₁ ◂⋆ □⋆ 0 t₂
+--     help m prf rewrite +-identityʳ m = prf
 
-pull□-BTN _ (base _) = nothing
-pull□-BTN m (s ⇒ t) with pull□ (suc m) t
-... | nothing = nothing
-... | just (□⋆ n t′ , prf) = just ((s ⇒ □⋆ n t′) , lemma m n prf)
-  where
-    lemma : (m n : ℕ) {s t : BoxTree} {t′ : BoxTreeNode} → □⋆ (suc (m + n)) t′ ◂⋆ t → □⋆ (suc m) (s ⇒ □⋆ n t′) ◂⋆ □⋆ 0 (s ⇒ t)
-    lemma zero n prf = {!!}
-    lemma (suc m) n prf = {!!}
+-- pull□-BTN _ (base _) = nothing
+-- pull□-BTN m (s ⇒ t) with pull□ (suc m) t
+-- ... | nothing = nothing
+-- ... | just (□⋆ n t′ , prf) = just ((s ⇒ □⋆ n t′) , lemma m n prf)
+--   where
+--     lemma : (m n : ℕ) {s t : BoxTree} {t′ : BoxTreeNode} → □⋆ (suc (m + n)) t′ ◂⋆ t → □⋆ (suc m) (s ⇒ □⋆ n t′) ◂⋆ □⋆ 0 (s ⇒ t)
+--     lemma zero n prf = {!!}
+--     lemma (suc m) n prf = {!!}
 
-◂-SemiDec : (s t : BoxTree) → Maybe (s ◂⋆ t)
-◂-SemiDec-ℕ : (n : ℕ) → (s : BoxTreeNode) → (t : BoxTree) → Maybe (Σ[ r ∈ ℕ ] Σ[ k ∈ ℕ ] (r + k ≡ n) × (□⋆ k s ◂⋆ t))
-◂-SemiDec-BTN : (n : ℕ) → (s : BoxTreeNode) → (t : BoxTreeNode) → Maybe (Σ[ r ∈ ℕ ] Σ[ k ∈ ℕ ] (r + k ≡ n) × (□⋆ k s ◂⋆ □⋆ 0 t))
-◂-SemiDec-arr : (n : ℕ) → (s₁ s₂ t₁ t₂ : BoxTree) → Maybe (Σ[ r ∈ ℕ ] Σ[ k ∈ ℕ ] (r + k ≡ n) × (□⋆ k (s₁ ⇒ s₂) ◂⋆ □⋆ 0 (t₁ ⇒ t₂)))
-◂-SemiDec-arr-fixed : (n : ℕ) → (s₁ s₂ t₁ t₂ : BoxTree) → Maybe (□⋆ n (s₁ ⇒ s₂) ◂⋆ □⋆ 0 (t₁ ⇒ t₂))
+-- ◂-SemiDec : (s t : BoxTree) → Maybe (s ◂⋆ t)
+-- ◂-SemiDec-ℕ : (n : ℕ) → (s : BoxTreeNode) → (t : BoxTree) → Maybe (Σ[ r ∈ ℕ ] Σ[ k ∈ ℕ ] (r + k ≡ n) × (□⋆ k s ◂⋆ t))
+-- ◂-SemiDec-BTN : (n : ℕ) → (s : BoxTreeNode) → (t : BoxTreeNode) → Maybe (Σ[ r ∈ ℕ ] Σ[ k ∈ ℕ ] (r + k ≡ n) × (□⋆ k s ◂⋆ □⋆ 0 t))
+-- ◂-SemiDec-arr : (n : ℕ) → (s₁ s₂ t₁ t₂ : BoxTree) → Maybe (Σ[ r ∈ ℕ ] Σ[ k ∈ ℕ ] (r + k ≡ n) × (□⋆ k (s₁ ⇒ s₂) ◂⋆ □⋆ 0 (t₁ ⇒ t₂)))
+-- ◂-SemiDec-arr-fixed : (n : ℕ) → (s₁ s₂ t₁ t₂ : BoxTree) → Maybe (□⋆ n (s₁ ⇒ s₂) ◂⋆ □⋆ 0 (t₁ ⇒ t₂))
 
-◂-SemiDec (□⋆ m s) t with ◂-SemiDec-ℕ m s t
-... | just (zero , _ , refl , □⋆ms◂⋆t) = just □⋆ms◂⋆t
-... | _ = nothing
+-- ◂-SemiDec (□⋆ m s) t with ◂-SemiDec-ℕ m s t
+-- ... | just (zero , _ , refl , □⋆ms◂⋆t) = just □⋆ms◂⋆t
+-- ... | _ = nothing
 
-◂-SemiDec-ℕ (suc m) s (□⋆ (suc n) t) with ◂-SemiDec-ℕ m s (□⋆ n t)
-... | just (r , k , r+k≡m , □⋆ks◂⋆□⋆nt) = just (r , suc k , {!!} , (map□ □⋆ks◂⋆□⋆nt))
-... | nothing = nothing
-◂-SemiDec-ℕ zero s (□⋆ (suc n) t) with ◂-SemiDec-ℕ zero s (□⋆ n t)
-... | just (r , k , r+k≡m , □⋆ks◂⋆□⋆nt) = just (r , k , r+k≡m , (□⋆ks◂⋆□⋆nt then pure))
-... | nothing = nothing
-◂-SemiDec-ℕ m s (□⋆ 0 t) = ◂-SemiDec-BTN m s t
+-- ◂-SemiDec-ℕ (suc m) s (□⋆ (suc n) t) with ◂-SemiDec-ℕ m s (□⋆ n t)
+-- ... | just (r , k , r+k≡m , □⋆ks◂⋆□⋆nt) = just (r , suc k , {!!} , (map□ □⋆ks◂⋆□⋆nt))
+-- ... | nothing = nothing
+-- ◂-SemiDec-ℕ zero s (□⋆ (suc n) t) with ◂-SemiDec-ℕ zero s (□⋆ n t)
+-- ... | just (r , k , r+k≡m , □⋆ks◂⋆□⋆nt) = just (r , k , r+k≡m , (□⋆ks◂⋆□⋆nt then pure))
+-- ... | nothing = nothing
+-- ◂-SemiDec-ℕ m s (□⋆ 0 t) = ◂-SemiDec-BTN m s t
 
-◂-SemiDec-BTN n (base b₁) (base b₂) with DecB b₁ b₂
-... | no _ = nothing
-... | yes b₁≡b₂ rewrite b₁≡b₂ = just (n , 0 , {!!} , rfl)
-◂-SemiDec-BTN n (s₁ ⇒ s₂) (t₁ ⇒ t₂) = ◂-SemiDec-arr n s₁ s₂ t₁ t₂
-◂-SemiDec-BTN _ _ _ = nothing
+-- ◂-SemiDec-BTN n (base b₁) (base b₂) with DecB b₁ b₂
+-- ... | no _ = nothing
+-- ... | yes b₁≡b₂ rewrite b₁≡b₂ = just (n , 0 , {!!} , rfl)
+-- ◂-SemiDec-BTN n (s₁ ⇒ s₂) (t₁ ⇒ t₂) = ◂-SemiDec-arr n s₁ s₂ t₁ t₂
+-- ◂-SemiDec-BTN _ _ _ = nothing
 
-◂-SemiDec-arr zero s₁ s₂ t₁ t₂ with ◂-SemiDec-arr-fixed 0 s₁ s₂ t₁ t₂
-... | just prf = just (0 , 0 , refl , prf)
-... | nothing = nothing
-◂-SemiDec-arr (suc n) s₁ s₂ t₁ t₂ with ◂-SemiDec-arr-fixed (suc n) s₁ s₂ t₁ t₂ | ◂-SemiDec-arr n s₁ s₂ t₁ t₂
-... | just prf | _ = just (0 , suc n , refl , prf)
-... | nothing | just (r , k , r+k≡sn , prf) = just ( suc r , k , cong suc r+k≡sn , prf)
-... | nothing | nothing = nothing
+-- ◂-SemiDec-arr zero s₁ s₂ t₁ t₂ with ◂-SemiDec-arr-fixed 0 s₁ s₂ t₁ t₂
+-- ... | just prf = just (0 , 0 , refl , prf)
+-- ... | nothing = nothing
+-- ◂-SemiDec-arr (suc n) s₁ s₂ t₁ t₂ with ◂-SemiDec-arr-fixed (suc n) s₁ s₂ t₁ t₂ | ◂-SemiDec-arr n s₁ s₂ t₁ t₂
+-- ... | just prf | _ = just (0 , suc n , refl , prf)
+-- ... | nothing | just (r , k , r+k≡sn , prf) = just ( suc r , k , cong suc r+k≡sn , prf)
+-- ... | nothing | nothing = nothing
 
-◂-SemiDec-arr-fixed n s₁ s₂ (□⋆ nt₁ t₁) t₂ with ◂-SemiDec-ℕ nt₁ t₁ (add□ n s₁)
-... | nothing = nothing
-... | just (_ , n₁ , eq , prf) with pull□ n₁ t₂
-...   | nothing = nothing
-...   | just (t₂′ , prf₂) = {!!}
+-- ◂-SemiDec-arr-fixed n s₁ s₂ (□⋆ nt₁ t₁) t₂ with ◂-SemiDec-ℕ nt₁ t₁ (add□ n s₁)
+-- ... | nothing = nothing
+-- ... | just (_ , n₁ , eq , prf) with pull□ n₁ t₂
+-- ...   | nothing = nothing
+-- ...   | just (t₂′ , prf₂) = {!!}
 
 --------------------------------------------------
 -- Subtyping is decidable
 
-◃-Dec : Decidable _◃_
+-- ◃-Dec : Decidable _◃_
 
--- First, some impossible cases.
-◃-Dec (base _) (_ ⇒ _) = no ¬B◃⇒
-◃-Dec (_ ⇒ _) (base _) = no ¬⇒◃B
-◃-Dec (□ _) (base _) = no ¬□◃B
+-- -- First, some impossible cases.
+-- ◃-Dec (base _) (_ ⇒ _) = no ¬B◃⇒
+-- ◃-Dec (_ ⇒ _) (base _) = no ¬⇒◃B
+-- ◃-Dec (□ _) (base _) = no ¬□◃B
 
--- There's no subtyping among base types, so just check for equality.
-◃-Dec (base b₁) (base b₂) with DecB b₁ b₂
-... | no b₁≢b₂ = no (contraposition (base-inj ∘ ◃B-inv) b₁≢b₂)
-... | yes b₁≡b₂ rewrite b₁≡b₂ = yes rfl
+-- -- There's no subtyping among base types, so just check for equality.
+-- ◃-Dec (base b₁) (base b₂) with DecB b₁ b₂
+-- ... | no b₁≢b₂ = no (contraposition (base-inj ∘ ◃B-inv) b₁≢b₂)
+-- ... | yes b₁≡b₂ rewrite b₁≡b₂ = yes rfl
 
--- If there's a box on both sides, it's always OK to cancel them.
-◃-Dec (□ σ) (□ τ) with ◃-Dec σ τ
-... | no ¬σ◃τ = no (contraposition □-inv ¬σ◃τ)
-... | yes σ◃τ = yes (box σ◃τ)
+-- -- If there's a box on both sides, it's always OK to cancel them.
+-- ◃-Dec (□ σ) (□ τ) with ◃-Dec σ τ
+-- ... | no ¬σ◃τ = no (contraposition □-inv ¬σ◃τ)
+-- ... | yes σ◃τ = yes (box σ◃τ)
 
--- If there's a box only on the right, we can just use 'pure'.
-◃-Dec (base b) (□ τ) with ◃-Dec (base b) τ
-... | no ¬b◃τ = no (contraposition B◃□-inv ¬b◃τ)
-... | yes b◃τ = yes (pure b◃τ)
-◃-Dec (σ₁ ⇒ σ₂) (□ τ) with ◃-Dec (σ₁ ⇒ σ₂) τ  -- Just use pure for box on RHS
-... | no ¬σ₁⇒σ₂◃τ = no (contraposition ⇒◃□-inv ¬σ₁⇒σ₂◃τ)
-... | yes σ₁⇒σ₂◃τ = yes (pure σ₁⇒σ₂◃τ)
+-- -- If there's a box only on the right, we can just use 'pure'.
+-- ◃-Dec (base b) (□ τ) with ◃-Dec (base b) τ
+-- ... | no ¬b◃τ = no (contraposition B◃□-inv ¬b◃τ)
+-- ... | yes b◃τ = yes (pure b◃τ)
+-- ◃-Dec (σ₁ ⇒ σ₂) (□ τ) with ◃-Dec (σ₁ ⇒ σ₂) τ  -- Just use pure for box on RHS
+-- ... | no ¬σ₁⇒σ₂◃τ = no (contraposition ⇒◃□-inv ¬σ₁⇒σ₂◃τ)
+-- ... | yes σ₁⇒σ₂◃τ = yes (pure σ₁⇒σ₂◃τ)
 
--- And now for the interesting cases, which of course involve
--- function types.
+-- -- And now for the interesting cases, which of course involve
+-- -- function types.
 
--- The only way to get this next case is to first push the box down,
--- i.e. the outermost constructor of any proof must be ap.  However,
--- we have to figure out σ₁ and σ₂.  They must be whatever is on the
--- LHS and RHS of σ (which must have a ⇒ shape), but with possibly
--- different numbers of □ ...
-◃-Dec (□ σ) (τ₁ ⇒ τ₂) = {!!}
+-- -- The only way to get this next case is to first push the box down,
+-- -- i.e. the outermost constructor of any proof must be ap.  However,
+-- -- we have to figure out σ₁ and σ₂.  They must be whatever is on the
+-- -- LHS and RHS of σ (which must have a ⇒ shape), but with possibly
+-- -- different numbers of □ ...
+-- ◃-Dec (□ σ) (τ₁ ⇒ τ₂) = {!!}
 
--- We might be tempted here to just check whether τ₁ ◃ σ₁ and σ₂ ◃
--- τ₂, and then use the 'arr' rule.  However, that would not be
--- correct; we might have to do some ap□ first (but we have to guess
--- how many...)  For example, (A → B) ◃ (□A → □B) (via pure + ap),
--- but □A ◃ A does not hold.
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) = {!!}
+-- -- We might be tempted here to just check whether τ₁ ◃ σ₁ and σ₂ ◃
+-- -- τ₂, and then use the 'arr' rule.  However, that would not be
+-- -- correct; we might have to do some ap□ first (but we have to guess
+-- -- how many...)  For example, (A → B) ◃ (□A → □B) (via pure + ap),
+-- -- but □A ◃ A does not hold.
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) = {!!}
 
-<:-Dec : Decidable _<:_
-<:-Dec σ τ with ◃-Dec σ τ
-... | no ¬σ◃τ = no λ σ<:τ → ¬σ◃τ (<:→◃ σ<:τ)
-... | yes σ◃τ = yes (◃→<: σ◃τ)
+-- <:-Dec : Decidable _<:_
+-- <:-Dec σ τ with ◃-Dec σ τ
+-- ... | no ¬σ◃τ = no λ σ<:τ → ¬σ◃τ (<:→◃ σ<:τ)
+-- ... | yes σ◃τ = yes (◃→<: σ◃τ)
