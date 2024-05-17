@@ -48,23 +48,72 @@
 \let\Bbbk\undefined
 %include polycode.fmt
 
-%format A = "\square"
+%format forall = "\forall"
+%format A = "\square\!"
 %format <$> = "\mathbin{\langle \$ \rangle}"
 %format <*> = "\mathbin{\langle * \rangle}"
-%format S = "\sigma"
-%format T = "\tau"
+%format s = "\sigma"
+%format t = "\tau"
+%format << = "\vartriangleleft"
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \usepackage{amsmath,amssymb}
+\usepackage{amsthm}
 \usepackage{supertabular}
 \usepackage{ifthen}
+\usepackage{prettyref}
 
 \input{ott/applicative_defns.tex}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \newcommand{\term}[1]{\emph{#1}}
+
+%% prettyref stuff -------------------------------------------
+
+\newrefformat{fig}{Figure~\ref{#1}}
+\newrefformat{sec}{section~\ref{#1}}
+\newrefformat{eq}{equation~\eqref{#1}}
+\newrefformat{prob}{Problem~\ref{#1}}
+\newrefformat{tab}{Table~\ref{#1}}
+\newrefformat{thm}{Theorem~\ref{#1}}
+\newrefformat{lem}{Lemma~\ref{#1}}
+\newrefformat{claim}{Claim~\ref{#1}}
+\newrefformat{obs}{Observation~\ref{#1}}
+\newrefformat{prop}{Proposition~\ref{#1}}
+\newrefformat{defn}{Definition~\ref{#1}}
+\newrefformat{cor}{Corollary~\ref{#1}}
+\providecommand{\pref}{}
+\renewcommand{\pref}[1]{\prettyref{#1}}
+
+% \Pref is just like \pref but it uppercases the first letter; for use
+% at the beginning of a sentence.
+\providecommand{\Pref}{}
+\renewcommand{\Pref}[1]{%
+  \expandafter\ifx\csname r@@#1\endcsname\relax {\scriptsize[ref]}
+    \else
+    \edef\reftext{\prettyref{#1}}\expandafter\MakeUppercase\reftext
+    \fi
+}
+
+%% theorems --------------------------------------------------
+
+\newtheorem{thm}{Theorem}[section]
+\newtheorem{prop}[thm]{Proposition}
+\newtheorem{lem}[thm]{Lemma}
+\newtheorem{claim}[thm]{Claim}
+\newtheorem{cor}[thm]{Corollary}
+
+\theoremstyle{definition}
+\newtheorem{defn}[thm]{Definition}
+\newtheorem{obs}{Observation}
+\newtheorem{prob}{Problem}
+
+\theoremstyle{remark}
+\newtheorem*{rem}{Remark}
+\newtheorem*{ex}{Example}
+\newtheorem*{nota}{Notation}
 
 \begin{document}
 
@@ -184,7 +233,7 @@ to this problem.  An applicative functor is any type constructor |A|
 which supports operations |pure| and |ap| having the following
 polymorphic types (together with some appropriate laws):
 \begin{gather*}
-|pure : t -> A t| \\
+|pure : forall t. t -> A t| \\
 |ap : A (s -> t) -> (A s -> A t)|
 \end{gather*}
 That is, |pure| gives us a way to inject plain values of any type |t|
@@ -201,14 +250,13 @@ add them like so:
 \[
 |(+) <$> x <*> y :: Maybe Int|.
 \]
-
 This is certainly much better than writing out nested |case|
 statements; it is relatively short and makes it more obvious that we
 are doing an addition operation, modulo some details about handling
 potential failure.
 
 But it's not good enough!  The |<$>| and |<*>| still introduce
-syntactic noise.  XXX Haskell experts are OK with this but 
+syntactic noise.  XXX Haskell experts are OK with this but
 
 XXX not arguing Haskell should be extended; good reasons Haskell can't
 handle this.  DSLs are where the idea really shines\dots
@@ -244,12 +292,14 @@ Now we define a subtyping relation over these types, shown in XXX
 Fig. \ref{fig:subtyping}.  The first four rules are fairly standard:
 the subtyping relation is reflexive and transitive, has the usual
 contravariant/covariant rule for function arrows, and is a congruence
-with respect to |A|.  The last two rules are more interesting, and
-simply reflect the fact that we want to be able to implicitly insert
-|pure| and |ap| as needed.  Thus, we consider any type |T| a subtype
-of |A T| (corresponding to an implicit call to |pure|), and
-similarly we consider |A (S -> T)| a subtype of |(A S -> A
-T)| (corresponding to |ap|).
+with respect to |A| (any applicative functor must in fact be a
+(covariant) functor, so such a congruence rule always makes sense).
+The last two rules are more interesting, and simply reflect the fact
+that we want to be able to implicitly insert |pure| and |ap| as
+needed.  Thus, we consider any type |t| a subtype of |A t|
+(corresponding to an implicit call to |pure|), and similarly we
+consider |A (s -> t)| a subtype of |(A s -> A t)| (corresponding to
+|ap|).
 
 \begin{figure}[htp]
   \centering
@@ -259,6 +309,91 @@ T)| (corresponding to |ap|).
 \end{figure}
 
 XXX now introduce terms with standard type system.
+XXX have to add basic polymorphism so we can give types to |pure| and
+|ap| as constants!
+
+Given term which typechecks in system with subtyping, show that we can
+automatically insert coercions, i.e. translate it into term that
+typechecks in system with no subtyping but two extra constants for
+|pure| and |ap|.
+
+\section{Cut-free subtyping}
+
+The definition of subtyping in \ref{fig:subtyping} has the advantage
+of being simple and obvious: it is nothing more than the reflexive,
+transitive closure of the relation which does the obvious structural
+thing on arrows and boxes, and includes axioms for our desired
+implicit coercions.  However, the transitivity rule is extremely
+non-syntax-directed and makes subtyping difficult to reason about: at
+every step we must take into account or rule out the possibility of
+inserting extra steps via transitivity.  XXX corresponds to a ``cut
+rule'' in some sort of modal logic.
+
+We therefore present an alternative, ``cut-free'' version of the
+subtyping relation, shown in XXX Fig. \ref{fig:tf-subtyping}.  The
+rules for reflexivity and congruence are the same, whereas the rules for
+|pure| and |ap| have been modified to ``bake in'' transitivity.
+Curiously, we need two variants of the rule for |ap|; the second
+represents a combination of |pure| and |ap|, where we first use |pure|
+to show |s << A s|, then use |ap| to push the box down through an
+arrow.
+
+\begin{figure}[htp]
+  \centering
+  \ottdefnsubt{}
+  \caption{Cut-free subtyping}
+  \label{fig:tf-subtyping}
+\end{figure}
+
+\begin{lem}[Cut elimination]
+  For all types |s| and |t|, |s << t| if and only if |s <: t|.
+\end{lem}
+
+\begin{proof}
+  The forward direction (|s << t| implies |s <: t|) is
+  straightforward.  Proving the other direction is nontrivial, and
+  relies on several nested inductions.  However, the proof (formally
+  checked in Agda) constitutes an algorithm for converting any proof
+  of |s <: t| into a cut-free proof of |s << t|.
+\end{proof}
+
+Note SUBTPure represents composing on the right with |pure|.  An
+earlier version of the system also had PUREL, composing on left with
+|pure| (show rule).  However, it created lots of problems.  Turns out
+to be admissible.
+
+\begin{lem}[Left pure]
+  If |A s <: t|, then |s <: t|.
+\end{lem}
+
+\begin{proof}
+  XXX
+\end{proof}
+
+XXX use to derive some inversion lemmas.
+
+XXX first lemma says that whenever we have a box on the right but no
+boxes on the left, we can get rid of the box; i.e. any proof of this
+can be rewritten to use PURE as the final rule.
+
+The SUBBOX rule can also be inverted: it says that if |s <: t| then
+|A s <: A t|, but the opposite is also true: whenever |A s <: A t|,
+then we must have |s <: t|.  In other words, any proof of |A s <: A t|
+can be rewritten to use SUBBOX as its final rule.
+
+Proof: more difficult.  Uses PureL, other inversion lemma.
+
+\section{Box trees}
+
+In this section, we develop another model of subtyping.
+
+
+\begin{thm}[Subtyping is decidable]
+  For any types |s| and |t|, we can effectively decide whether |s <: t|.
+\end{thm}
+
+
+
 
 % The ``\verb|figure|'' environment should be used for figures. One or
 % more images can be placed within a figure. If your figure contains
