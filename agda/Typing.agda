@@ -32,6 +32,18 @@ data Var : Ctx → Ty → Set₁ where
   vz : Var (Γ , τ) τ
   vs : Var Γ τ → Var (Γ , σ) τ
 
+_-_ : (Γ : Ctx) → Var Γ σ → Ctx
+∅ - ()
+(Γ , _) - vz = Γ
+(Γ , x) - vs v = (Γ - v) , x
+
+wkv : (x : Var Γ σ) → Var (Γ - x) τ → Var Γ τ
+wkv vz y = vs y
+wkv (vs x) vz = vz
+wkv (vs x) (vs y) = vs (wkv x y)
+
+
+
 record Signature : Set₁ where
   field
     C : Set
@@ -58,16 +70,7 @@ module TypingJudgment (Sig : Signature) where
     pure : Term□ Γ (τ ⇒ □ τ)
     ap : Term□ Γ (□ (σ ⇒ τ) ⇒ (□ σ ⇒ □ τ))
 
-  _-_ : (Γ : Ctx) → Var Γ σ → Ctx
-  ∅ - ()
-  (Γ , _) - vz = Γ
-  (Γ , x) - vs v = (Γ - v) , x
-
-  wkv : (x : Var Γ σ) → Var (Γ - x) τ → Var Γ τ
-  wkv vz y = vs y
-  wkv (vs x) vz = vz
-  wkv (vs x) (vs y) = vs (wkv x y)
-
+  -- Weakening for terms.  Needed for arr case of coercion insertion.
   wk : (x : Var Γ σ) → Term□ (Γ - x) τ → Term□ Γ τ
   wk x (var y) = var (wkv x y)
   wk x (ƛ t) = ƛ (wk (vs x) t)
