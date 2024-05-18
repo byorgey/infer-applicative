@@ -10,8 +10,11 @@ data Ty : Set where
   _⇒_ : Ty → Ty → Ty
   □_ : Ty → Ty
 
-infix 2 _⇒_
+infixr 2 _⇒_
 infix 30 □_
+
+variable
+  σ τ υ : Ty
 
 base-inj : {b₁ b₂ : B} → base b₁ ≡ base b₂ → b₁ ≡ b₂
 base-inj refl = refl

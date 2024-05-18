@@ -23,7 +23,6 @@ infixr 4 _,_
 
 variable
   Γ : Ctx
-  σ τ : Ty
 
 -- Approach to variables + weakening taken from
 -- Keller + Alternkirch, "Normalization by hereditary substitutions"
