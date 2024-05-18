@@ -23,6 +23,8 @@ grammar
     | t t'                ::   :: app                     {{ com application }}
     | n                   ::   :: nat                     {{ com natural literal }}
     | c                   ::   :: con                     {{ com constant }}
+    | pure                ::   :: pure                    {{ com pure }}
+    | ap                  ::   :: ap                      {{ com ap }}
     | ( t )               :: S :: paren
 
   value, v :: 'v_' ::=                                  {{ com value }}
@@ -49,11 +51,15 @@ grammar
     | N                   ::   :: nat        {{ tex \mathbb{N} }}
     | []                  ::   :: box        {{ tex \abox }}
     | |-                  ::   :: turn       {{ tex \vdash }}
+    | |-<:                ::   :: turnsu     {{ tex \vdash_{<:} }}
     | elem                ::   :: elem       {{ tex \in }}
     | ->                  ::   :: arr        {{ tex \to }}
     | <:                  ::   :: subtype    {{ tex \mathrel{<:} }}
     | <|                  ::   :: subtypet   {{ tex \vartriangleleft }}
     | Sig                 ::   :: signature  {{ tex \Sigma }}
+    | empty               ::   :: empty      {{ tex \varnothing }}
+    | pure                ::   :: pure       {{ tex \mathsf{pure} }}
+    | ap                  ::   :: ap         {{ tex \mathsf{ap} }}
 
   formula :: 'formula_' ::=
     | judgement           ::   :: judgement
@@ -129,10 +135,6 @@ defns
   defn
     G |- t : T :: :: type :: ty_    {{ com $[[t]]$ has type $[[T]]$ in context $[[G]]$ }} by
 
-    G |- x : S     S <: T
-    --------------------- :: sub
-    G |- x : T
-
     x : T elem G
     ------------ :: var
     G |- x : T
@@ -148,3 +150,20 @@ defns
     c : T elem Sig
     -------------- :: const
     G |- c : T
+
+    --------------------- :: pure
+    G |- pure : S -> [] S
+
+    --------------------------------------- :: ap
+    G |- ap : [] (S -> T) -> ([] S -> [] T)
+
+  defn
+    G |-<: t : T ::  :: stype :: tys_ {{ com $[[t]]$ has type $[[T]]$ in context $[[G]]$ with subtyping }} by
+
+    G |- t : T
+    ------------ :: emb
+    G |-<: t : T
+
+    G |-<: x : S     S <: T
+    --------------------- :: sub
+    G |-<: x : T

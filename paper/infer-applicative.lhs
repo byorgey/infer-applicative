@@ -318,10 +318,8 @@ As an example, XXX use example from a previous section, but recast it
 in more formal notation.
 
 XXX now introduce terms with standard type system.
-XXX have to add basic polymorphism so we can give types to |pure| and
-|ap| as constants!
 
-Given term which typechecks in system with subtyping, show that we can
+Given a term which typechecks in system with subtyping, show that we can
 automatically insert coercions, i.e. translate it into term that
 typechecks in system with no subtyping but two extra constants for
 |pure| and |ap|.
@@ -453,6 +451,8 @@ XXX we know if |s <: t| then they have the same shape.
 % \end{figure}
 
 \section{Future work}
+
+Selective functors
 
 Incorporate product and sum types:
 
