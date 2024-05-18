@@ -291,6 +291,31 @@ B◃□-inv = <:→◃ ∘ B<:□-inv ∘ ◃→<:
 □◃⇒-inv (ap {σ₁ = σ₁} {σ₂ = σ₂} f g) = σ₁ , σ₂ , f , g
 □◃⇒-inv (ap□ {σ₁ = σ₁} {σ₂ = σ₂} f g) = σ₁ , σ₂ , pureL f , g
 
+-- How about antisymmetry for subtyping?
+
+-- ◃-antisym : σ ◃ τ → τ ◃ σ → σ ≡ τ
+-- ◃-antisym rfl τ◃σ = refl
+-- ◃-antisym (box σ◃τ) □τ◃□σ = cong □_ (◃-antisym σ◃τ (□-inv □τ◃□σ))
+-- ◃-antisym (arr σ◃τ σ◃τ₁) rfl = refl
+-- ◃-antisym (arr τ₁◃σ₁ σ₂◃τ₂) (arr σ₁◃τ₁ τ₂◃σ₂) = cong₂ _⇒_ (◃-antisym σ₁◃τ₁ τ₁◃σ₁) (◃-antisym σ₂◃τ₂ τ₂◃σ₂)
+-- ◃-antisym (arr τ₁◃σ₁ σ₂◃τ₂) (ap□ τ₁⇒τ₂◃σ₃⇒σ₄ □σ₃⇒□σ₄◃σ₁⇒σ₂) = {!!}
+-- ◃-antisym (pure σ◃τ) rfl = refl
+-- ◃-antisym (pure σ◃τ) (box τ◃σ) = cong □_ {!!}
+-- ◃-antisym (pure σ◃τ) (pure τ◃σ) = cong □_ {!!}
+-- ◃-antisym (pure σ◃τ) (ap τ◃σ τ◃σ₁) = {!!}
+-- ◃-antisym (pure σ◃τ) (ap□ τ◃σ τ◃σ₁) = {!!}
+-- ◃-antisym (ap σ◃τ σ◃τ₁) rfl = refl
+-- ◃-antisym (ap σ◃τ σ◃τ₁) (box τ◃σ) = cong □_ {!!}
+-- ◃-antisym (ap σ◃τ σ◃τ₁) (pure τ◃σ) = {!!}
+-- ◃-antisym (ap σ◃τ σ◃τ₁) (ap τ◃σ τ◃σ₁) = cong □_ {!!}
+-- ◃-antisym (ap σ◃τ σ◃τ₁) (ap□ τ◃σ τ◃σ₁) = {!!}
+-- ◃-antisym (ap□ σ◃τ σ◃τ₁) rfl = refl
+-- ◃-antisym (ap□ σ◃τ σ◃τ₁) (box τ◃σ) = cong □_ {!!}
+-- ◃-antisym (ap□ σ◃τ σ◃τ₁) (arr τ◃σ τ◃σ₁) = {!!}
+-- ◃-antisym (ap□ σ◃τ σ◃τ₁) (pure τ◃σ) = {!!}
+-- ◃-antisym (ap□ σ◃τ σ◃τ₁) (ap τ◃σ τ◃σ₁) = {!!}
+-- ◃-antisym (ap□ σ◃τ σ◃τ₁) (ap□ τ◃σ τ◃σ₁) = {!!}
+
 --------------------------------------------------
 -- BoxTrees
 

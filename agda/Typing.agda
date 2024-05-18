@@ -81,7 +81,7 @@ module TypingJudgment (Sig : Signature) where
   -- Coercion insertion
   -- Should definitely present these rules in the paper!
 
-  infixr 3 _≪_
+  infixr 5 _≪_
 
   _≪_ : σ <: τ → Term□ Γ σ → Term□ Γ τ
   rfl ≪ t = t
