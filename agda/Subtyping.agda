@@ -511,6 +511,13 @@ mapL (s◂t then x) = cons (L x) (mapL s◂t)
 -- intuitive understanding of subtyping as tree transformations is
 -- correct.
 
+-- Some additional inversion lemmas we can most easily prove with BoxTrees.
+
+-- WORKING HERE
+-- boxes-≤ : {m n : ℕ} {t : BoxTreeNode} → (□⋆ m t ◂⋆ □⋆ n t) → m ≤ n
+-- boxes-≤ rfl = ≤-refl
+-- boxes-≤ (_then_ {t = □⋆ m′ u} chain step) = {!!}
+
 -- add□ : ℕ → BoxTree → BoxTree
 -- add□ m (□⋆ n t) = □⋆ (m + n) t
 

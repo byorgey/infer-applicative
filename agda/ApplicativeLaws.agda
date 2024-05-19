@@ -2,6 +2,7 @@ open import Relation.Binary.Bundles using (Setoid)
 open import Data.Empty
 open import Relation.Binary using (Decidable ; DecidableEquality)
 open import Level
+open import Relation.Nullary.Negation
 
 module ApplicativeLaws (B : Set) (DecB : DecidableEquality B) where
 
@@ -43,7 +44,7 @@ data _≈_ : Term□ Γ τ → Term□ Γ τ → Set₁ where
   cong : {Γ₁ Γ₂ : Ctx} {s t : Term□ Γ₁ σ} → (f : Term□ Γ₁ σ → Term□ Γ₂ τ) → s ≈ t → f s ≈ f t
 
   -- η-expansion
-  eta : {t : Term□ Γ (σ ⇒ τ)} → t ≈ (ƛ (wk vz t ∙ var vz))
+  η : {t : Term□ Γ (σ ⇒ τ)} → t ≈ (ƛ (wk vz t ∙ var vz))
 
   -- Applicative laws
 
@@ -88,7 +89,7 @@ coerce-id {Γ = Γ} {τ = τ} (arr τ₁<:τ₁ τ₂<:τ₂) t = begin
   ƛ (τ₂<:τ₂ ≪ (wk vz t ∙ (var vz)))
                                           ≈⟨ cong ƛ (coerce-id τ₂<:τ₂ _) ⟩
   ƛ (wk vz t ∙ (var vz))
-                                          ≈⟨ sym eta ⟩
+                                          ≈⟨ sym η ⟩
   t ∎
   where
     open ≈-Reasoning Γ τ
@@ -112,8 +113,28 @@ coerce-id {Γ = Γ} {τ = τ} (box σ<:σ) t = begin
 
 foo : {Γ : Ctx} {σ τ : Ty} {t : Term□ Γ σ} → (pf1 pf2 : σ ◃ τ) → ((◃→<: pf1) ≪ t) ≈ ((◃→<: pf2) ≪ t)
 foo rfl rfl = refl
-foo rfl (box pf2) = {!!}
-foo rfl (arr pf2 pf3) = {!!}
+foo rfl (box pf2) = begin
+  _
+                                          ≈⟨ sym idt ⟩
+  (ap ∙ (pure ∙ ƛ (var vz))) ∙ _
+                                          ≈⟨ cong (λ x → (ap ∙ (pure ∙ ƛ x)) ∙ _) (sym (coerce-id (◃→<: pf2) _)) ⟩
+  (ap ∙ (pure ∙ ƛ (◃→<: pf2 ≪ var vz))) ∙ _
+  ∎
+  where
+    open ≈-Reasoning _ _
+
+foo rfl (arr pf2 pf3) = begin
+  _
+                                          ≈⟨ η ⟩
+  ƛ (wk vz _ ∙ (var vz))
+                                          ≈⟨ cong ƛ (sym (coerce-id (◃→<: pf3) _)) ⟩
+  ƛ (◃→<: pf3 ≪ (wk vz _ ∙ (var vz)))
+                                          ≈⟨ cong (λ x → ƛ (◃→<: pf3 ≪ (wk vz _ ∙ x))) (sym (coerce-id (◃→<: pf2) _)) ⟩
+  ƛ (◃→<: pf3 ≪ (wk vz _ ∙ (◃→<: pf2 ≪ var vz)))
+  ∎
+  where
+    open ≈-Reasoning _ _
+
 foo rfl (pure pf2) = {!!}
 foo rfl (ap pf2 pf3) = {!!}
 foo rfl (ap□ pf2 pf3) = {!!}
