@@ -1,5 +1,7 @@
+open import Relation.Binary.Bundles using (Setoid)
 open import Data.Empty
 open import Relation.Binary using (Decidable ; DecidableEquality)
+open import Level
 
 module ApplicativeLaws (B : Set) (DecB : DecidableEquality B) where
 
@@ -35,10 +37,10 @@ infix 4 _≈_
 data _≈_ : Term□ Γ τ → Term□ Γ τ → Set₁ where
 
   -- Equivalence and congruence laws
-  rfl : s ≈ s
-  tr : s ≈ t → t ≈ u → s ≈ u
+  refl : s ≈ s
+  trans : s ≈ t → t ≈ u → s ≈ u
   sym : s ≈ t → t ≈ s
-  cng : {Γ₁ Γ₂ : Ctx} {s t : Term□ Γ₁ σ} → (f : Term□ Γ₁ σ → Term□ Γ₂ τ) → s ≈ t → f s ≈ f t
+  cong : {Γ₁ Γ₂ : Ctx} {s t : Term□ Γ₁ σ} → (f : Term□ Γ₁ σ → Term□ Γ₂ τ) → s ≈ t → f s ≈ f t
 
   -- η-expansion
   eta : {t : Term□ Γ (σ ⇒ τ)} → t ≈ (ƛ (wk vz t ∙ var vz))
@@ -57,29 +59,60 @@ data _≈_ : Term□ Γ τ → Term□ Γ τ → Set₁ where
   -- pure (.) <*> u <*> v <*> w = u <*> (v <*> w) -- Composition
   pur : (pure ∙ compose) <*> s <*> t <*> u ≈ s <*> (t <*> u)
 
--- Set up equational reasoning proof machinery!
+-- Set up equational reasoning proof machinery.
 
+≈-Setoid : (Γ : Ctx) (τ : Ty) → Setoid _ _
+≈-Setoid Γ τ = record
+  { Carrier = Term□ Γ τ
+  ; _≈_ = _≈_
+  ; isEquivalence = record
+    { refl = refl
+    ; sym = sym
+    ; trans = trans
+    }
+  }
 
-coerce-id : (reflpf : τ <: τ) (t : Term□ Γ τ) → reflpf ≪ t ≈ t
-coerce-id rfl _ = rfl
+import Relation.Binary.Reasoning.Setoid
+module ≈-Reasoning (Γ : Ctx) (τ : Ty) = Relation.Binary.Reasoning.Setoid (≈-Setoid Γ τ)
+
+coerce-id : {Γ : Ctx} {τ : Ty} (reflpf : τ <: τ) (t : Term□ Γ τ) → reflpf ≪ t ≈ t
+coerce-id rfl _ = refl
 coerce-id (tr τ<:σ σ<:τ) t = {!!}  -- need antisymmetry, then we can just use IH twice
 
 -- use IH twice, then use η-equivalence.
--- This is going to be extremely tedious without equational reasoning machinery.
-coerce-id (arr τ₁<:τ₁ τ₂<:τ₂) t = {!!}
+coerce-id {Γ = Γ} {τ = τ} (arr τ₁<:τ₁ τ₂<:τ₂) t = begin
+  arr τ₁<:τ₁ τ₂<:τ₂ ≪ t
+                                          ≈⟨ refl ⟩
+  ƛ (τ₂<:τ₂ ≪ (wk vz t ∙ (τ₁<:τ₁ ≪ var vz)))
+                                          ≈⟨ cong (λ x → ƛ (τ₂<:τ₂ ≪ (wk vz t ∙ x))) (coerce-id τ₁<:τ₁ (var vz)) ⟩
+  ƛ (τ₂<:τ₂ ≪ (wk vz t ∙ (var vz)))
+                                          ≈⟨ cong ƛ (coerce-id τ₂<:τ₂ _) ⟩
+  ƛ (wk vz t ∙ (var vz))
+                                          ≈⟨ sym eta ⟩
+  t ∎
+  where
+    open ≈-Reasoning Γ τ
 
 -- Use IH, then this is just identity law.
-coerce-id (box σ<:σ) t = {!!}
-
+coerce-id {Γ = Γ} {τ = τ} (box σ<:σ) t = begin
+  box σ<:σ ≪ t
+                                          ≈⟨ refl ⟩
+  (ap ∙ (pure ∙ ƛ (σ<:σ ≪ var vz))) ∙ t
+                                          ≈⟨ cong (λ x → (ap ∙ (pure ∙ ƛ x)) ∙ t) (coerce-id σ<:σ (var vz)) ⟩
+  (ap ∙ (pure ∙ ƛ (var vz))) ∙ t
+                                          ≈⟨ idt ⟩
+  t ∎
+  where
+    open ≈-Reasoning Γ τ
 
 -- Prove that any two subtyping proofs cause t to be elaborated into equivalent terms.
 foo : (pf1 pf2 : σ <: τ) → (pf1 ≪ t) ≈ (pf2 ≪ t)
-foo rfl rfl = rfl
+foo rfl rfl = refl
 foo rfl (tr pf2 pf3) = {!!}  -- If tr x y : σ <: σ, then why does (tr x y) ≪ t ≈ t?
   -- Lemma: if σ <: τ and τ <: σ then σ ≡ τ , i.e. <: is antisymmetric?
 foo rfl (arr pf2 pf3) = {!!}
 foo rfl (box pf2) = {!!}
-foo (tr pf1 pf2) rfl = {!!}
+foo (tr pf1 pf2) rfl = {!!}   -- antisymmetry
 foo (tr pf1 pf2) (tr pf3 pf4) = {!!}
 foo (tr pf1 pf2) (arr pf3 pf4) = {!!}
 foo (tr pf1 pf2) (box pf3) = {!!}
@@ -90,10 +123,10 @@ foo (arr pf1 pf2) (tr pf3 pf4) = {!!}
 foo (arr pf1 pf2) (arr pf3 pf4) = {!!}
 foo (box pf1) rfl = {!!}
 foo (box pf1) (tr pf2 pf3) = {!!}
-foo (box pf1) (box pf2) = {!!}
+foo (box pf1) (box pf2) = cong (λ z → (ap ∙ (pure ∙ ƛ z)) ∙ _) (foo pf1 pf2)
 foo (box pf1) pure = {!!}
 foo pure (tr pf2 pf3) = {!!}
 foo pure (box pf2) = {!!}
-foo pure pure = {!!}
+foo pure pure = refl
 foo ap (tr pf2 pf3) = {!!}
-foo ap ap = {!!}
+foo ap ap = refl
