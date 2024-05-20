@@ -83,6 +83,25 @@ infix 1 _<:_
 <:→⌊⌋ pure = refl
 <:→⌊⌋ ap = refl
 
+-- ap is the most interesting case.  The definition of boxity was
+-- chosen carefully so that the boxity of (□ σ ⇒ □ τ) is strictly
+-- greater than (in fact, exactly one more than) the boxity of □ (σ ⇒
+-- τ).
+boxity-ap : {σ τ : Ty} → boxity (□ σ ⇒ □ τ) ≡ + 1 + boxity (□ (σ ⇒ τ))
+boxity-ap {σ = σ} {τ = τ} = begin-equality
+  boxity (□ σ ⇒ □ τ)
+                     ≡⟨⟩
+  (+ 3 * (+ 1 + boxity τ) - (+ 1 + boxity σ))
+                     ≡⟨ solve 2
+                          (λ i j →
+                             con (+ 3) :* (con (+ 1) :+ i) :- (con (+ 1) :+ j) :=
+                             con (+ 1) :+ (con (+ 1) :+ ((con (+ 3) :* i :- j))))
+                          refl (boxity τ) (boxity σ) ⟩
+  + 1 + (+ 1 + (+ 3 * boxity τ - boxity σ))
+                     ≡⟨⟩
+  + 1 + boxity (□ (σ ⇒ τ))
+  ∎
+
 -- Subtyping can only increase the boxity
 boxity≤ : σ <: τ → boxity σ ≤ boxity τ
 boxity≤ rfl = ≤-refl
@@ -98,9 +117,6 @@ boxity≤ {σ = σ₁ ⇒ σ₂} {τ = τ₁ ⇒ τ₂} (arr τ₁<:σ₁ σ₂<
   ∎
 boxity≤ (box σ<:τ) = +-monoʳ-≤ (+ 1) (boxity≤ σ<:τ)
 boxity≤ pure = i≤j+i _ (+ 1)
--- ap is the most interesting case.  The definition of boxity was chosen carefully
--- so that this case in particular goes through!  In fact the boxity of
--- (□ σ ⇒ □ τ) is exactly one more than the boxity of □ (σ ⇒ τ).
 boxity≤ {σ = □ (σ ⇒ τ)} ap = begin
   boxity (□ (σ ⇒ τ))
                      ≡⟨⟩
@@ -143,10 +159,19 @@ boxity≤ {σ = □ (σ ⇒ τ)} ap = begin
 
 boxity≡ : σ <: τ → boxity σ ≡ boxity τ → σ ≡ τ
 boxity≡ rfl _ = refl
-boxity≡ (tr σ<:τ τ<:υ) eq = {!!}   -- use boxity≤ to conclude σ ≤ τ, τ ≤ υ so in fact they are all equal
+boxity≡ (tr {σ = σ} {τ = τ} {υ = υ} σ<:τ τ<:υ) eq = trans σ≡τ τ≡υ
+  where
+    bτ≤bσ : boxity τ ≤ boxity σ
+    bτ≤bσ rewrite eq = boxity≤ τ<:υ
+    bσ≡bτ : boxity σ ≡ boxity τ
+    bσ≡bτ = ≤-antisym (boxity≤ σ<:τ) bτ≤bσ
+    σ≡τ : σ ≡ τ
+    σ≡τ = boxity≡ σ<:τ bσ≡bτ
+    τ≡υ : τ ≡ υ
+    τ≡υ = boxity≡ τ<:υ (trans (sym bσ≡bτ) eq)
 boxity≡ (arr τ₁<:σ₁ σ₂<:τ₂) eq = {!!}
 boxity≡ (box σ<:τ) eq = cong □_ (boxity≡ σ<:τ (+-inj (+ 1) eq))
-boxity≡ pure eq = {!!}  -- x /= 1 + x
+boxity≡ pure eq = ⊥-elim (i≢suc[i] eq)
 boxity≡ ap eq = {!!}  -- show these are not equal
 
 
