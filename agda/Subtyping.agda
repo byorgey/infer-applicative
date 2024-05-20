@@ -1,7 +1,7 @@
 open import Function using (_∘_)
 open import Data.Bool hiding (_≤_)
 open import Data.Nat as ℕ using (ℕ ; suc ; zero)
-open import Data.Integer using (+_ ; _+_ ; _-_ ; _*_ ; _≤_)
+open import Data.Integer using (+_ ; _+_ ; _-_ ; -_ ; _*_ ; _≤_)
 open import Data.Integer.Properties
 open ≤-Reasoning
 open import Data.Integer.Solver using (module +-*-Solver)
@@ -87,9 +87,15 @@ infix 1 _<:_
 boxity≤ : σ <: τ → boxity σ ≤ boxity τ
 boxity≤ rfl = ≤-refl
 boxity≤ (tr σ<:τ τ<:υ) = ≤-trans (boxity≤ σ<:τ) (boxity≤ τ<:υ)
-boxity≤ (arr τ₁<:σ₁ σ₂<:τ₂) = {!!}   -- t1 ≤ s1 → s2 ≤ t2 → 3s2 - s1 ≤ 3t2 - t1
-  -- neg-mono-≤ : -_ Preserves _≤_ ⟶ _≥_
-  -- *-monoʳ-≤-nonNeg : ∀ i .{{_ : NonNegative i}} → (_* i) Preserves _≤_ ⟶ _≤_
+boxity≤ {σ = σ₁ ⇒ σ₂} {τ = τ₁ ⇒ τ₂} (arr τ₁<:σ₁ σ₂<:τ₂) = begin
+  boxity (σ₁ ⇒ σ₂)
+            ≡⟨⟩
+  + 3 * boxity σ₂ - boxity σ₁
+            ≤⟨ +-mono-≤ (*-monoˡ-≤-nonNeg (+ 3) (boxity≤ σ₂<:τ₂)) (neg-mono-≤ (boxity≤ τ₁<:σ₁)) ⟩
+  + 3 * boxity τ₂ - boxity τ₁
+            ≡⟨⟩
+  boxity (τ₁ ⇒ τ₂)
+  ∎
 boxity≤ (box σ<:τ) = +-monoʳ-≤ (+ 1) (boxity≤ σ<:τ)
 boxity≤ pure = i≤j+i _ (+ 1)
 -- ap is the most interesting case.  The definition of boxity was chosen carefully
