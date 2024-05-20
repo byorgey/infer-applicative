@@ -4,15 +4,15 @@ open import Data.Nat as ℕ using (ℕ ; suc ; zero)
 open import Data.Integer using (ℤ ; +_ ; _+_ ; _-_ ; -_ ; _*_ ; _≤_)
 open import Data.Integer.Properties
 open ≤-Reasoning
-open import Data.Integer.Solver using (module +-*-Solver)
-open +-*-Solver
+-- open import Data.Integer.Solver using (module +-*-Solver)
+-- open +-*-Solver
 open import Data.Product using (Σ-syntax ; _,_)
 open import Data.Sum
 open import Data.Product
 open import Relation.Nullary.Negation
 open import Relation.Nullary.Decidable using (yes ; no)
 open import Data.Empty
-open import Relation.Binary using (Decidable ; DecidableEquality)
+open import Relation.Binary using (Decidable ; DecidableEquality ; Antisymmetric)
 open import Relation.Binary.PropositionalEquality
 open import Relation.Binary.HeterogeneousEquality using (_≅_ ; refl) renaming (cong₂ to ≅cong₂)
 open import Data.Maybe using (Maybe ; just ; nothing) renaming (map to mmap)
@@ -72,9 +72,8 @@ infix 1 _<:_
 -}
 
 --------------------------------------------------
--- Some inversion lemmas about subtyping
-
 -- Subtypes have the same shape
+
 <:→⌊⌋ : {σ τ : Ty} → σ <: τ → ⌊ σ ⌋ ≡ ⌊ τ ⌋
 <:→⌊⌋ rfl = refl
 <:→⌊⌋ (tr σ<:τ τ<:υ) = trans (<:→⌊⌋ σ<:τ) (<:→⌊⌋ τ<:υ)
@@ -83,26 +82,10 @@ infix 1 _<:_
 <:→⌊⌋ pure = refl
 <:→⌊⌋ ap = refl
 
--- ap is the most interesting case.  The definition of boxity was
--- chosen carefully so that the boxity of (□ σ ⇒ □ τ) is strictly
--- greater than (in fact, exactly one more than) the boxity of □ (σ ⇒
--- τ).
-boxity-ap : {σ τ : Ty} → boxity (□ σ ⇒ □ τ) ≡ + 1 + boxity (□ (σ ⇒ τ))
-boxity-ap {σ = σ} {τ = τ} = begin-equality
-  boxity (□ σ ⇒ □ τ)
-                     ≡⟨⟩
-  (+ 3 * (+ 1 + boxity τ) - (+ 1 + boxity σ))
-                     ≡⟨ solve 2
-                          (λ i j →
-                             con (+ 3) :* (con (+ 1) :+ i) :- (con (+ 1) :+ j) :=
-                             con (+ 1) :+ (con (+ 1) :+ ((con (+ 3) :* i :- j))))
-                          refl (boxity τ) (boxity σ) ⟩
-  + 1 + (+ 1 + (+ 3 * boxity τ - boxity σ))
-                     ≡⟨⟩
-  + 1 + boxity (□ (σ ⇒ τ))
-  ∎
+------------------------------------------------------------
+-- Boxity + antisymmetry
 
--- Subtyping can only increase the boxity
+-- Subtyping can only increase the boxity.
 boxity≤ : σ <: τ → boxity σ ≤ boxity τ
 boxity≤ rfl = ≤-refl
 boxity≤ (tr σ<:τ τ<:υ) = ≤-trans (boxity≤ σ<:τ) (boxity≤ τ<:υ)
@@ -117,21 +100,12 @@ boxity≤ {σ = σ₁ ⇒ σ₂} {τ = τ₁ ⇒ τ₂} (arr τ₁<:σ₁ σ₂<
   ∎
 boxity≤ (box σ<:τ) = +-monoʳ-≤ (+ 1) (boxity≤ σ<:τ)
 boxity≤ pure = i≤j+i _ (+ 1)
+-- ap is the most interesting case; it follows from the boxity-ap lemma above.
 boxity≤ {σ = □ (σ ⇒ τ)} ap = begin
   boxity (□ (σ ⇒ τ))
-                     ≡⟨⟩
-  + 1 + boxity (σ ⇒ τ)
-                     ≡⟨⟩
-  + 1 + (+ 3 * boxity τ - boxity σ)
-                     ≤⟨ i≤j+i _ (+ 1) ⟩
-  + 1 + (+ 1 + (+ 3 * boxity τ - boxity σ))
-                     ≡⟨ solve 2
-                          (λ i j →
-                             con (+ 1) :+ (con (+ 1) :+ (con (+ 3) :* i :- j)) :=
-                             con (+ 3) :* (con (+ 1) :+ i) :- (con (+ 1) :+ j))
-                          refl (boxity τ) (boxity σ) ⟩
-  + 3 * (+ 1 + boxity τ) - (+ 1 + boxity σ)
-                     ≡⟨⟩
+            ≤⟨ i≤j+i _ (+ 1) ⟩
+  + 1 + boxity (□ (σ ⇒ τ))
+            ≡⟨ sym (boxity-ap σ τ) ⟩
   boxity (□ σ ⇒ □ τ)
   ∎
 
@@ -157,6 +131,45 @@ boxity≤ {σ = □ (σ ⇒ τ)} ap = begin
   j
   ∎
 
+-- If boxity (σ₁ ⇒ σ₂) ≡ boxity (τ₁ ⇒ τ₂)
+-- and τ₁ <: σ₁ and σ₂ <: τ₂, then boxity σ₁ ≡ boxity τ₁ and boxity σ₂ ≡ boxity τ₂
+-- Proof:
+--   - by boxity≤,  boxity τ₁ ≤ boxity σ₁ and boxity σ₂ ≤ boxity τ₂.
+--   - Either boxity τ₁ ≡ boxity σ₁ or boxity τ₁ < boxity σ₁.
+--   - In the latter case, boxity (σ₁ ⇒ σ₂) < boxity (τ₁ ⇒ τ₂), contradiction.
+--   - similar reasoning for σ₂, τ₂.
+boxity-⇒-inv : {σ₁ σ₂ τ₁ τ₂ : Ty}
+  → boxity (σ₁ ⇒ σ₂) ≡ boxity (τ₁ ⇒ τ₂)
+  → τ₁ <: σ₁ → σ₂ <: τ₂
+  → boxity τ₁ ≡ boxity σ₁ × boxity σ₂ ≡ boxity τ₂
+boxity-⇒-inv {σ₁} {σ₂} {τ₁} {τ₂} eq τ₁<:σ₁ σ₂<:τ₂ =
+  ≤∧≮⇒≡ (boxity≤ τ₁<:σ₁) (λ bτ₁<bσ₁ → contradiction eq (<⇒≢ (
+    begin-strict
+      boxity (σ₁ ⇒ σ₂)
+                ≡⟨⟩
+      + 3 * boxity σ₂ - boxity σ₁
+                <⟨ +-monoʳ-< (+ 3 * boxity σ₂ ) (neg-mono-< bτ₁<bσ₁) ⟩
+      + 3 * boxity σ₂ - boxity τ₁
+                ≤⟨ +-monoˡ-≤ (- boxity τ₁) (*-monoˡ-≤-nonNeg (+ 3) (boxity≤ σ₂<:τ₂)) ⟩
+      + 3 * boxity τ₂ - boxity τ₁
+                ≡⟨⟩
+      boxity (τ₁ ⇒ τ₂)
+    ∎
+  ))) ,
+  ≤∧≮⇒≡ (boxity≤ σ₂<:τ₂) (λ bσ₂<bτ₂ → contradiction eq (<⇒≢ (
+    begin-strict
+      boxity (σ₁ ⇒ σ₂)
+                ≡⟨⟩
+      + 3 * boxity σ₂ - boxity σ₁
+                <⟨ +-monoˡ-< (- boxity σ₁) (*-monoˡ-<-pos (+ 3) bσ₂<bτ₂) ⟩
+      + 3 * boxity τ₂ - boxity σ₁
+                ≤⟨ +-monoʳ-≤ (+ 3 * boxity τ₂) (neg-mono-≤ (boxity≤ τ₁<:σ₁)) ⟩
+      + 3 * boxity τ₂ - boxity τ₁
+                ≡⟨⟩
+      boxity (τ₁ ⇒ τ₂)
+    ∎
+  )))
+
 boxity≡ : σ <: τ → boxity σ ≡ boxity τ → σ ≡ τ
 boxity≡ rfl _ = refl
 boxity≡ (tr {σ = σ} {τ = τ} {υ = υ} σ<:τ τ<:υ) eq = trans σ≡τ τ≡υ
@@ -169,11 +182,19 @@ boxity≡ (tr {σ = σ} {τ = τ} {υ = υ} σ<:τ τ<:υ) eq = trans σ≡τ τ
     σ≡τ = boxity≡ σ<:τ bσ≡bτ
     τ≡υ : τ ≡ υ
     τ≡υ = boxity≡ τ<:υ (trans (sym bσ≡bτ) eq)
-boxity≡ (arr τ₁<:σ₁ σ₂<:τ₂) eq = {!!}
+boxity≡ (arr τ₁<:σ₁ σ₂<:τ₂) eq = cong₂ _⇒_
+  (sym (boxity≡ τ₁<:σ₁ (proj₁ (boxity-⇒-inv eq τ₁<:σ₁ σ₂<:τ₂))))
+  (boxity≡ σ₂<:τ₂ (proj₂ (boxity-⇒-inv eq τ₁<:σ₁ σ₂<:τ₂)))
 boxity≡ (box σ<:τ) eq = cong □_ (boxity≡ σ<:τ (+-inj (+ 1) eq))
 boxity≡ pure eq = ⊥-elim (i≢suc[i] eq)
-boxity≡ ap eq = {!!}  -- show these are not equal
+boxity≡ (ap {σ = σ} {τ = τ}) eq = contradiction eq (<⇒≢ (boxity-ap-< σ τ))
 
+-- We can now use boxity to prove antisymmetry of subtyping.
+<:-antisym : Antisymmetric _≡_ _<:_
+<:-antisym σ<:τ τ<:σ = boxity≡ σ<:τ (≤-antisym (boxity≤ σ<:τ) (boxity≤ τ<:σ))
+
+------------------------------------------------------------
+-- Some inversion lemmas about subtyping
 
 <:B-inv : {τ : Ty} {b : B} → (τ <: base b) → (τ ≡ base b)
 <:B-inv rfl = refl
@@ -386,31 +407,6 @@ B◃□-inv = <:→◃ ∘ B<:□-inv ∘ ◃→<:
 □◃⇒-inv : {σ τ₁ τ₂ : Ty} → □ σ ◃ τ₁ ⇒ τ₂ → Σ[ σ₁ ∈ Ty ] Σ[ σ₂ ∈ Ty ] (σ ◃ σ₁ ⇒ σ₂) × (□ σ₁ ⇒ □ σ₂ ◃ τ₁ ⇒ τ₂)
 □◃⇒-inv (ap {σ₁ = σ₁} {σ₂ = σ₂} f g) = σ₁ , σ₂ , f , g
 □◃⇒-inv (ap□ {σ₁ = σ₁} {σ₂ = σ₂} f g) = σ₁ , σ₂ , pureL f , g
-
--- How about antisymmetry for subtyping?
-
--- ◃-antisym : σ ◃ τ → τ ◃ σ → σ ≡ τ
--- ◃-antisym rfl τ◃σ = refl
--- ◃-antisym (box σ◃τ) □τ◃□σ = cong □_ (◃-antisym σ◃τ (□-inv □τ◃□σ))
--- ◃-antisym (arr σ◃τ σ◃τ₁) rfl = refl
--- ◃-antisym (arr τ₁◃σ₁ σ₂◃τ₂) (arr σ₁◃τ₁ τ₂◃σ₂) = cong₂ _⇒_ (◃-antisym σ₁◃τ₁ τ₁◃σ₁) (◃-antisym σ₂◃τ₂ τ₂◃σ₂)
--- ◃-antisym (arr τ₁◃σ₁ σ₂◃τ₂) (ap□ τ₁⇒τ₂◃σ₃⇒σ₄ □σ₃⇒□σ₄◃σ₁⇒σ₂) = {!!}
--- ◃-antisym (pure σ◃τ) rfl = refl
--- ◃-antisym (pure σ◃τ) (box τ◃σ) = cong □_ {!!}
--- ◃-antisym (pure σ◃τ) (pure τ◃σ) = cong □_ {!!}
--- ◃-antisym (pure σ◃τ) (ap τ◃σ τ◃σ₁) = {!!}
--- ◃-antisym (pure σ◃τ) (ap□ τ◃σ τ◃σ₁) = {!!}
--- ◃-antisym (ap σ◃τ σ◃τ₁) rfl = refl
--- ◃-antisym (ap σ◃τ σ◃τ₁) (box τ◃σ) = cong □_ {!!}
--- ◃-antisym (ap σ◃τ σ◃τ₁) (pure τ◃σ) = {!!}
--- ◃-antisym (ap σ◃τ σ◃τ₁) (ap τ◃σ τ◃σ₁) = cong □_ {!!}
--- ◃-antisym (ap σ◃τ σ◃τ₁) (ap□ τ◃σ τ◃σ₁) = {!!}
--- ◃-antisym (ap□ σ◃τ σ◃τ₁) rfl = refl
--- ◃-antisym (ap□ σ◃τ σ◃τ₁) (box τ◃σ) = cong □_ {!!}
--- ◃-antisym (ap□ σ◃τ σ◃τ₁) (arr τ◃σ τ◃σ₁) = {!!}
--- ◃-antisym (ap□ σ◃τ σ◃τ₁) (pure τ◃σ) = {!!}
--- ◃-antisym (ap□ σ◃τ σ◃τ₁) (ap τ◃σ τ◃σ₁) = {!!}
--- ◃-antisym (ap□ σ◃τ σ◃τ₁) (ap□ τ◃σ τ◃σ₁) = {!!}
 
 --------------------------------------------------
 -- BoxTrees

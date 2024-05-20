@@ -3,6 +3,10 @@ open import Relation.Binary.PropositionalEquality
 open import Relation.Binary using (DecidableEquality)
 open import Relation.Nullary.Decidable using (yes ; no)
 open import Data.Integer
+open import Data.Integer.Properties
+open ≤-Reasoning
+open import Data.Integer.Solver using (module +-*-Solver)
+open +-*-Solver
 open import Data.Nat using (zero)
 
 module Types (B : Set) (DecB : DecidableEquality B) where
@@ -64,3 +68,27 @@ boxity : Ty → ℤ
 boxity (base _) = + zero
 boxity (σ ⇒ τ) = + 3 * (boxity τ) - boxity σ
 boxity (□ τ) = suc (boxity τ)
+
+-- The definition of boxity was chosen carefully so that the boxity of
+-- (□ σ ⇒ □ τ) is strictly greater than (in fact, exactly one more
+-- than) the boxity of □ (σ ⇒ τ).
+boxity-ap : (σ τ : Ty) → boxity (□ σ ⇒ □ τ) ≡ + 1 + boxity (□ (σ ⇒ τ))
+boxity-ap σ τ = begin-equality
+  boxity (□ σ ⇒ □ τ)
+                     ≡⟨⟩
+  (+ 3 * (+ 1 + boxity τ) - (+ 1 + boxity σ))
+                     ≡⟨ solve 2
+                          (λ i j →
+                             con (+ 3) :* (con (+ 1) :+ i) :- (con (+ 1) :+ j) :=
+                             con (+ 1) :+ (con (+ 1) :+ ((con (+ 3) :* i :- j))))
+                          refl (boxity τ) (boxity σ) ⟩
+  + 1 + (+ 1 + (+ 3 * boxity τ - boxity σ))
+                     ≡⟨⟩
+  + 1 + boxity (□ (σ ⇒ τ))
+  ∎
+
+≡suc⇒< : {i j : ℤ} → i ≡ suc j → j < i
+≡suc⇒< {i} eq = suc[i]≤j⇒i<j (≤-reflexive (sym eq))
+
+boxity-ap-< : (σ τ : Ty) → boxity (□ (σ ⇒ τ)) < boxity (□ σ ⇒ □ τ)
+boxity-ap-< σ τ = ≡suc⇒< (boxity-ap σ τ)

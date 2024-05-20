@@ -3,6 +3,7 @@ open import Data.Empty
 open import Relation.Binary using (Decidable ; DecidableEquality)
 open import Level
 open import Relation.Nullary.Negation
+open import Relation.Binary.PropositionalEquality using (refl)
 
 module ApplicativeLaws (B : Set) (DecB : DecidableEquality B) where
 
@@ -43,7 +44,7 @@ data _≈_ : Term□ Γ τ → Term□ Γ τ → Set₁ where
   sym : s ≈ t → t ≈ s
   cong : {Γ₁ Γ₂ : Ctx} {s t : Term□ Γ₁ σ} → (f : Term□ Γ₁ σ → Term□ Γ₂ τ) → s ≈ t → f s ≈ f t
 
-  -- η-expansion
+  -- η-equivalence
   η : {t : Term□ Γ (σ ⇒ τ)} → t ≈ (ƛ (wk vz t ∙ var vz))
 
   -- Applicative laws
@@ -78,7 +79,19 @@ module ≈-Reasoning (Γ : Ctx) (τ : Ty) = Relation.Binary.Reasoning.Setoid (�
 
 coerce-id : {Γ : Ctx} {τ : Ty} (reflpf : τ <: τ) (t : Term□ Γ τ) → reflpf ≪ t ≈ t
 coerce-id rfl _ = refl
-coerce-id (tr τ<:σ σ<:τ) t = {!!}  -- need antisymmetry, then we can just use IH twice
+
+-- Transitivity case follows from antisymmetry of subtyping.  If τ<:σ and σ<:τ
+-- then in fact the two types are equal, so we can apply the IH twice.
+coerce-id {Γ = Γ} {τ = τ} (tr τ<:σ σ<:τ) t with <:-antisym σ<:τ τ<:σ
+... | refl = begin
+  σ<:τ ≪ τ<:σ ≪ t
+            ≈⟨ coerce-id σ<:τ (τ<:σ ≪ t) ⟩
+  τ<:σ ≪ t
+            ≈⟨ coerce-id τ<:σ t ⟩
+  t
+  ∎
+  where
+    open ≈-Reasoning Γ τ
 
 -- use IH twice, then use η-equivalence.
 coerce-id {Γ = Γ} {τ = τ} (arr τ₁<:τ₁ τ₂<:τ₂) t = begin
