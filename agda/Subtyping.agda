@@ -92,6 +92,9 @@ boxity≤ (arr τ₁<:σ₁ σ₂<:τ₂) = {!!}   -- t1 ≤ s1 → s2 ≤ t2 �
   -- *-monoʳ-≤-nonNeg : ∀ i .{{_ : NonNegative i}} → (_* i) Preserves _≤_ ⟶ _≤_
 boxity≤ (box σ<:τ) = +-monoʳ-≤ (+ 1) (boxity≤ σ<:τ)
 boxity≤ pure = i≤j+i _ (+ 1)
+-- ap is the most interesting case.  The definition of boxity was chosen carefully
+-- so that this case in particular goes through!  In fact the boxity of
+-- (□ σ ⇒ □ τ) is exactly one more than the boxity of □ (σ ⇒ τ).
 boxity≤ {σ = □ (σ ⇒ τ)} ap = begin
   boxity (□ (σ ⇒ τ))
                      ≡⟨⟩
