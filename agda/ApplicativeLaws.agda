@@ -122,7 +122,6 @@ coerce-id {Γ = Γ} {τ = τ} (box σ<:σ) t = begin
 -- Prove that any two subtyping proofs cause t to be elaborated into equivalent terms.
 
 -- Once again, transitivity is the worst.  =(
--- Maybe rewrite ≪ to work with σ ◃ τ instead??
 
 foo : {Γ : Ctx} {σ τ : Ty} {t : Term□ Γ σ} → (pf1 pf2 : σ ◃ τ) → ((◃→<: pf1) ≪ t) ≈ ((◃→<: pf2) ≪ t)
 foo rfl rfl = refl
@@ -148,12 +147,21 @@ foo rfl (arr pf2 pf3) = begin
   where
     open ≈-Reasoning _ _
 
-foo rfl (pure pf2) = {!!}
+foo rfl (pure pf2) = ⊥-elim (¬□τ<:τ (◃→<: pf2))
 foo rfl (ap pf2 pf3) = {!!}
 foo rfl (ap□ pf2 pf3) = {!!}
-foo (box pf1) rfl = {!!}
+foo (box pf1) rfl = begin
+  (ap ∙ (pure ∙ ƛ (◃→<: pf1 ≪ var vz))) ∙ _
+            ≈⟨ cong (λ x → (ap ∙ (pure ∙ ƛ x)) ∙ _) (coerce-id (◃→<: pf1) _) ⟩
+  (ap ∙ (pure ∙ ƛ (var vz))) ∙ _
+            ≈⟨ idt ⟩
+  _
+  ∎
+  where
+    open ≈-Reasoning _ _
+
 foo (box pf1) (box pf2) = cong (λ z → (ap ∙ (pure ∙ ƛ z)) ∙ _) (foo pf1 pf2)
-foo (box pf1) (pure pf2) = {!!}
+foo (box pf1) (pure pf2) = {!!}  -- !!
 foo (box pf1) (ap pf2 pf3) = {!!}
 foo (box pf1) (ap□ pf2 pf3) = {!!}
 foo (arr pf1 pf2) rfl = {!!}

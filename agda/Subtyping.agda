@@ -193,6 +193,10 @@ boxity≡ (ap {σ = σ} {τ = τ}) eq = contradiction eq (<⇒≢ (boxity-ap-< �
 <:-antisym : Antisymmetric _≡_ _<:_
 <:-antisym σ<:τ τ<:σ = boxity≡ σ<:τ (≤-antisym (boxity≤ σ<:τ) (boxity≤ τ<:σ))
 
+-- We can also use boxity to prove a few more inversion lemmas.
+¬□τ<:τ : ¬ (□ τ <: τ)
+¬□τ<:τ □τ<:τ = >⇒≰ (≡suc⇒< refl) (boxity≤ □τ<:τ)
+
 ------------------------------------------------------------
 -- Some inversion lemmas about subtyping
 
