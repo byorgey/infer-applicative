@@ -2,6 +2,8 @@ open import Data.Product
 open import Relation.Binary.PropositionalEquality
 open import Relation.Binary using (DecidableEquality)
 open import Relation.Nullary.Decidable using (yes ; no)
+open import Data.Integer
+open import Data.Nat using (zero)
 
 module Types (B : Set) (DecB : DecidableEquality B) where
 
@@ -48,10 +50,16 @@ base-inj refl = refl
 ... | yes τ₁≡τ₂ = yes (cong □_ τ₁≡τ₂)
 
 ------------------------------------------------------------
--- Box erasure
+-- Box erasure + box count
 ------------------------------------------------------------
 
 ⌊_⌋ : Ty → Ty
 ⌊ base b ⌋ = base b
 ⌊ σ ⇒ τ ⌋ = ⌊ σ ⌋ ⇒ ⌊ τ ⌋
 ⌊ □ τ ⌋ = ⌊ τ ⌋
+
+-- Signed box count
+boxcount : Ty → ℤ
+boxcount (base _) = + zero
+boxcount (σ ⇒ τ) = + 3 * (boxcount τ) - boxcount σ
+boxcount (□ τ) = suc (boxcount τ)

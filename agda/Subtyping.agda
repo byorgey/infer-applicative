@@ -1,7 +1,8 @@
 open import Function using (_∘_)
 open import Data.Bool hiding (_≤_)
-open import Data.Nat
-open import Data.Nat.Properties
+open import Data.Nat using (ℕ ; suc ; zero)
+open import Data.Integer using (ℤ ; _≤_)
+open import Data.Integer.Properties
 open import Data.Product using (Σ-syntax ; _,_)
 open import Data.Sum
 open import Data.Product
@@ -78,6 +79,23 @@ infix 1 _<:_
 <:→⌊⌋ (box σ<:τ) = <:→⌊⌋ σ<:τ
 <:→⌊⌋ pure = refl
 <:→⌊⌋ ap = refl
+
+-- Subtyping can only increase the signed box count
+boxcount≤ : σ <: τ → boxcount σ ≤ boxcount τ
+boxcount≤ rfl = ≤-refl
+boxcount≤ (tr σ<:τ τ<:υ) = ≤-trans (boxcount≤ σ<:τ) (boxcount≤ τ<:υ)
+boxcount≤ (arr τ₁<:σ₁ σ₂<:τ₂) = {!!}
+boxcount≤ (box σ<:τ) = {!!} -- n ≤ m  →  1 + n ≤ 1 + m
+boxcount≤ pure = {!!}    -- n ≤ 1 + n
+boxcount≤ ap = {!!}
+  {-
+      boxcount (□ (σ ⇒ τ)) ≤ boxcount (□ σ ⇒ □ τ)
+  <-> 1 + boxcount (σ ⇒ τ) ≤ 3 boxcount (□ τ) - boxcount (□ σ)
+  <-> 1 + 3 b(t) - b(s) ≤ 3 (1 + b(t)) - (1 + b(s))
+  <->     ...           ≤ 2 + 3 b(t) - b(s)
+
+  -}
+
 
 <:B-inv : {τ : Ty} {b : B} → (τ <: base b) → (τ ≡ base b)
 <:B-inv rfl = refl
