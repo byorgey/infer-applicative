@@ -58,8 +58,9 @@ base-inj refl = refl
 ⌊ σ ⇒ τ ⌋ = ⌊ σ ⌋ ⇒ ⌊ τ ⌋
 ⌊ □ τ ⌋ = ⌊ τ ⌋
 
--- Signed box count
-boxcount : Ty → ℤ
-boxcount (base _) = + zero
-boxcount (σ ⇒ τ) = + 3 * (boxcount τ) - boxcount σ
-boxcount (□ τ) = suc (boxcount τ)
+-- Boxity is a made-up measure on types that is designed so that
+-- σ <: τ → boxity σ ≤ boxity τ
+boxity : Ty → ℤ
+boxity (base _) = + zero
+boxity (σ ⇒ τ) = + 3 * (boxity τ) - boxity σ
+boxity (□ τ) = suc (boxity τ)

@@ -1,8 +1,11 @@
 open import Function using (_∘_)
 open import Data.Bool hiding (_≤_)
-open import Data.Nat using (ℕ ; suc ; zero)
-open import Data.Integer using (ℤ ; _≤_)
+open import Data.Nat as ℕ using (ℕ ; suc ; zero)
+open import Data.Integer using (+_ ; _+_ ; _-_ ; _*_ ; _≤_)
 open import Data.Integer.Properties
+open ≤-Reasoning
+open import Data.Integer.Solver using (module +-*-Solver)
+open +-*-Solver
 open import Data.Product using (Σ-syntax ; _,_)
 open import Data.Sum
 open import Data.Product
@@ -80,21 +83,40 @@ infix 1 _<:_
 <:→⌊⌋ pure = refl
 <:→⌊⌋ ap = refl
 
--- Subtyping can only increase the signed box count
-boxcount≤ : σ <: τ → boxcount σ ≤ boxcount τ
-boxcount≤ rfl = ≤-refl
-boxcount≤ (tr σ<:τ τ<:υ) = ≤-trans (boxcount≤ σ<:τ) (boxcount≤ τ<:υ)
-boxcount≤ (arr τ₁<:σ₁ σ₂<:τ₂) = {!!}
-boxcount≤ (box σ<:τ) = {!!} -- n ≤ m  →  1 + n ≤ 1 + m
-boxcount≤ pure = {!!}    -- n ≤ 1 + n
-boxcount≤ ap = {!!}
-  {-
-      boxcount (□ (σ ⇒ τ)) ≤ boxcount (□ σ ⇒ □ τ)
-  <-> 1 + boxcount (σ ⇒ τ) ≤ 3 boxcount (□ τ) - boxcount (□ σ)
-  <-> 1 + 3 b(t) - b(s) ≤ 3 (1 + b(t)) - (1 + b(s))
-  <->     ...           ≤ 2 + 3 b(t) - b(s)
+-- Subtyping can only increase the boxity
+boxity≤ : σ <: τ → boxity σ ≤ boxity τ
+boxity≤ rfl = ≤-refl
+boxity≤ (tr σ<:τ τ<:υ) = ≤-trans (boxity≤ σ<:τ) (boxity≤ τ<:υ)
+boxity≤ (arr τ₁<:σ₁ σ₂<:τ₂) = {!!}   -- t1 ≤ s1 → s2 ≤ t2 → 3s2 - s1 ≤ 3t2 - t1
+  -- neg-mono-≤ : -_ Preserves _≤_ ⟶ _≥_
+  -- *-monoʳ-≤-nonNeg : ∀ i .{{_ : NonNegative i}} → (_* i) Preserves _≤_ ⟶ _≤_
+boxity≤ (box σ<:τ) = +-monoʳ-≤ (+ 1) (boxity≤ σ<:τ)
+boxity≤ pure = i≤j+i _ (+ 1)
+boxity≤ {σ = □ (σ ⇒ τ)} ap = begin
+  boxity (□ (σ ⇒ τ))
+                     ≡⟨⟩
+  + 1 + boxity (σ ⇒ τ)
+                     ≡⟨⟩
+  + 1 + (+ 3 * boxity τ - boxity σ)
+                     ≤⟨ i≤j+i _ (+ 1) ⟩
+  + 1 + (+ 1 + (+ 3 * boxity τ - boxity σ))
+                     ≡⟨ solve 2
+                          (λ i j →
+                             con (+ 1) :+ (con (+ 1) :+ (con (+ 3) :* i :- j)) :=
+                             con (+ 3) :* (con (+ 1) :+ i) :- (con (+ 1) :+ j))
+                          refl (boxity τ) (boxity σ) ⟩
+  + 3 * (+ 1 + boxity τ) - (+ 1 + boxity σ)
+                     ≡⟨⟩
+  boxity (□ σ ⇒ □ τ)
+  ∎
 
-  -}
+boxity≡ : σ <: τ → boxity σ ≡ boxity τ → σ ≡ τ
+boxity≡ rfl _ = refl
+boxity≡ (tr σ<:τ τ<:υ) eq = {!!}   -- use boxity≤ to conclude σ ≤ τ, τ ≤ υ so in fact they are all equal
+boxity≡ (arr τ₁<:σ₁ σ₂<:τ₂) eq = {!!}
+boxity≡ (box σ<:τ) eq = {!!}  -- 1 + x = 1 + y -> x = y
+boxity≡ pure eq = {!!}  -- x /= 1 + x
+boxity≡ ap eq = {!!}  -- show these are not equal
 
 
 <:B-inv : {τ : Ty} {b : B} → (τ <: base b) → (τ ≡ base b)
@@ -124,7 +146,7 @@ data LiftedBase (b : B) : Ty → Set where
 LB⇒□^ : {b : B} {τ : Ty} → LiftedBase b τ → Σ[ n ∈ ℕ ] τ ≡ □^ n ∙ base b
 LB⇒□^ IsBase = zero , refl
 LB⇒□^ (IsBox LB) with LB⇒□^ LB
-... | k , τ≡□^kb = suc k , cong □_ τ≡□^kb
+... | k , τ≡□^kb = ℕ.suc k , cong □_ τ≡□^kb
 
 B<:LB : {b : B} {τ : Ty} → LiftedBase b τ → base b <: τ
 B<:LB IsBase = rfl
