@@ -1,7 +1,7 @@
 open import Function using (_∘_)
 open import Data.Bool hiding (_≤_)
 open import Data.Nat as ℕ using (ℕ ; suc ; zero)
-open import Data.Integer using (+_ ; _+_ ; _-_ ; -_ ; _*_ ; _≤_)
+open import Data.Integer using (ℤ ; +_ ; _+_ ; _-_ ; -_ ; _*_ ; _≤_)
 open import Data.Integer.Properties
 open ≤-Reasoning
 open import Data.Integer.Solver using (module +-*-Solver)
@@ -119,11 +119,33 @@ boxity≤ {σ = □ (σ ⇒ τ)} ap = begin
   boxity (□ σ ⇒ □ τ)
   ∎
 
+-- XXX there has to be a better way to do this.  Doesn't this theorem
+-- already exist somewhere?  Maybe a generic proof that the operation
+-- in a group is always injective?
++-inj : (n : ℤ) {i j : ℤ} → n + i ≡ n + j → i ≡ j
++-inj n {i} {j} eq = begin-equality
+  i
+            ≡⟨ sym (+-identityˡ i) ⟩
+  + 0 + i
+            ≡⟨ cong (_+ i) (sym (+-inverseˡ n)) ⟩
+  (- n + n) + i
+            ≡⟨ +-assoc (- n) n i ⟩
+  - n + (n + i)
+            ≡⟨ cong (λ x → - n + x) eq ⟩
+  - n + (n + j)
+            ≡⟨ sym (+-assoc (- n) n j) ⟩
+  (- n + n) + j
+            ≡⟨ cong (_+ j) (+-inverseˡ n) ⟩
+  + 0 + j
+            ≡⟨ +-identityˡ j ⟩
+  j
+  ∎
+
 boxity≡ : σ <: τ → boxity σ ≡ boxity τ → σ ≡ τ
 boxity≡ rfl _ = refl
 boxity≡ (tr σ<:τ τ<:υ) eq = {!!}   -- use boxity≤ to conclude σ ≤ τ, τ ≤ υ so in fact they are all equal
 boxity≡ (arr τ₁<:σ₁ σ₂<:τ₂) eq = {!!}
-boxity≡ (box σ<:τ) eq = {!!}  -- 1 + x = 1 + y -> x = y
+boxity≡ (box σ<:τ) eq = cong □_ (boxity≡ σ<:τ (+-inj (+ 1) eq))
 boxity≡ pure eq = {!!}  -- x /= 1 + x
 boxity≡ ap eq = {!!}  -- show these are not equal
 
