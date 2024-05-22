@@ -429,6 +429,9 @@ data BoxTreeNode where
 data BoxTree where
   □⋆ : ℕ → BoxTreeNode → BoxTree
 
+□⁺ : BoxTree → BoxTree
+□⁺ (□⋆ n t) = □⋆ (suc n) t
+
 numBoxes : Ty → ℕ
 numBoxes (base _) = 0
 numBoxes (_ ⇒ _) = 0
@@ -613,6 +616,65 @@ mapL (s◂t then x) = cons (L x) (mapL s◂t)
 -- boxes-≤ : {m n : ℕ} {t : BoxTreeNode} → (□⋆ m t ◂⋆ □⋆ n t) → m ≤ n
 -- boxes-≤ rfl = ≤-refl
 -- boxes-≤ (_then_ {t = □⋆ m′ u} chain step) = {!!}
+
+------------------------------------------------------------
+-- Normalized transitivity-free subtyping proofs
+------------------------------------------------------------
+
+infix 1 _◃₁_ _◃₂_ _◃₃_ _◃₄_
+
+data _◃₁_ : BoxTree → BoxTree → Set
+data _◃₂_ : BoxTreeNode → BoxTree → Set
+data _◃₃_ : BoxTree → BoxTreeNode → Set
+data _◃₄_ : BoxTreeNode → BoxTreeNode → Set
+
+data _◃₁_ where
+  box : {m n : ℕ} {s t : BoxTreeNode} → □⋆ m s ◃₁ □⋆ n t → □⋆ (suc m) s ◃₁ □⋆ (suc n) t
+  ι₁ : {n : ℕ} {s t : BoxTreeNode} → s ◃₂ □⋆ n t → □⋆ zero s ◃₁ □⋆ n t
+
+data _◃₂_ where
+  pure : {n : ℕ} {s t : BoxTreeNode} → s ◃₂ □⋆ n t → s ◃₂ □⋆ (suc n) t
+  ι₂ : {s t : BoxTreeNode} → s ◃₄ t → s ◃₂ □⋆ zero t
+
+data _◃₃_ where
+  ap : {n : ℕ} {s t : BoxTreeNode} {s₁ s₂ : BoxTree} → □⋆ n s ◃₃ s₁ ⇒ s₂ → (□⁺ s₁ ⇒ □⁺ s₂ ◃₄ t) → □⋆ (suc n) s ◃₃ t
+  ι₃ : {s t : BoxTreeNode} → s ◃₄ t → □⋆ zero s ◃₃ t
+
+data _◃₄_ where
+  rfl : {b : B} → base b ◃₄ base b
+  ap□ : {s t : BoxTreeNode} {s₁ s₂ : BoxTree} → s ◃₄ s₁ ⇒ s₂ → (□⁺ s₁ ⇒ □⁺ s₂ ◃₄ t) → s ◃₄ t
+  arr : {s t u v : BoxTree} → u ◃₁ s → t ◃₁ v → (s ⇒ t) ◃₄ (u ⇒ v)
+
+--------------------------------------------------
+-- Converting normalized → unnormalized proofs
+
+◃₁→◃ : {s t : BoxTree} → s ◃₁ t → BoxTree→Type s ◃ BoxTree→Type t
+◃₂→◃ : {s : BoxTreeNode} {t : BoxTree} → s ◃₂ t → BoxTreeNode→Type s ◃ BoxTree→Type t
+◃₃→◃ : {s : BoxTree} {t : BoxTreeNode} → s ◃₃ t → BoxTree→Type s ◃ BoxTreeNode→Type t
+◃₄→◃ : {s t : BoxTreeNode} → s ◃₄ t → BoxTreeNode→Type s ◃ BoxTreeNode→Type t
+
+◃₁→◃ (box s◃t) = box (◃₁→◃ s◃t)
+◃₁→◃ (ι₁ s◃t) = ◃₂→◃ s◃t
+
+◃₂→◃ (pure s◃t) = pure (◃₂→◃ s◃t)
+◃₂→◃ (ι₂ s◃t) = ◃₄→◃ s◃t
+
+◃₃→◃ (ap {s₁ = □⋆ _ _} {s₂ = □⋆ _ _} p1 p2) = ap (◃₃→◃ p1) (◃₄→◃ p2)
+◃₃→◃ (ι₃ s◃t) = ◃₄→◃ s◃t
+
+◃₄→◃ rfl = rfl
+◃₄→◃ (ap□ {s₁ = □⋆ _ _} {s₂ = □⋆ _ _} p1 p2) = ap□ (◃₄→◃ p1) (◃₄→◃ p2)
+◃₄→◃ (arr p1 p2) = arr (◃₁→◃ p1) (◃₁→◃ p2)
+
+--------------------------------------------------
+-- Subtyping proof normalization
+
+◃→◃₁ : {σ τ : Ty} → σ ◃ τ → Type→BoxTree σ ◃₁ Type→BoxTree τ
+◃→◃₁ = {!!}
+
+------------------------------------------------------------
+-- Decidability of subtyping
+------------------------------------------------------------
 
 -- add□ : ℕ → BoxTree → BoxTree
 -- add□ m (□⋆ n t) = □⋆ (m + n) t
