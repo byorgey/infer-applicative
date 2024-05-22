@@ -120,7 +120,6 @@ coerce-id {Γ = Γ} {τ = τ} (box σ<:σ) t = begin
     open ≈-Reasoning Γ τ
 
 -- Prove that any two subtyping proofs cause t to be elaborated into equivalent terms.
-
 -- Once again, transitivity is the worst.  =(
 
 foo : {Γ : Ctx} {σ τ : Ty} {t : Term□ Γ σ} → (pf1 pf2 : σ ◃ τ) → ((◃→<: pf1) ≪ t) ≈ ((◃→<: pf2) ≪ t)
@@ -161,57 +160,37 @@ foo (box pf1) rfl = begin
     open ≈-Reasoning _ _
 
 foo (box pf1) (box pf2) = cong (λ z → (ap ∙ (pure ∙ ƛ z)) ∙ _) (foo pf1 pf2)
+
+-- The next case is not true!  Thinking carefully about the goal at
+-- this point led me to the following counterexample:
+--
+-- Suppose we want to elaborate
+--
+-- f :: □ N → □ (□ N)
+-- f t = t
+--
+-- To infer the type of this, we infer a proof of □ N <: □ (□ N) and
+-- then use it to rewrite the t on the RHS.  However, there are two
+-- proofs: we could use box then pure, or pure then box.  If we follow
+-- through the corresponding rewrites, we get 'pure t' in one case and
+-- 'fmap pure t' in the other case.  But these are not equivalent!
+-- For example, take □ = Maybe.  pure Nothing = Just Nothing, but fmap
+-- pure Nothing = Nothing.
+--
+-- Some potential ways out of this:
+--
+-- 1. What if we somehow restrict to never having □ (□ τ),
+--    i.e. disallowing nested boxes?  Not entirely sure off the top of
+--    my head how to formalize that, but it would also make inference
+--    much simpler!!
+--
+-- 2. What if we require subtyping proofs to be normalized, i.e. to
+--    first use box as much as possible, then pure as much as
+--    possible, then ap□ and ap some number of times.  Does that get
+--    rid of the ambiguity?  This means inference is still hard but
+--    it might be more interesting.
+--
+-- Probably I should pursue both.
+
 foo (box pf1) (pure pf2) = {!!}  -- !!
-foo (box pf1) (ap pf2 pf3) = {!!}
-foo (box pf1) (ap□ pf2 pf3) = {!!}
-foo (arr pf1 pf2) rfl = {!!}
-foo (arr pf1 pf2) (arr pf3 pf4) = {!!}
-foo (arr pf1 pf2) (ap□ pf3 pf4) = {!!}
-foo (pure pf1) rfl = {!!}
-foo (pure pf1) (box pf2) = {!!}
-foo (pure pf1) (pure pf2) = cong (_∙_ pure) (foo pf1 pf2)
-foo (pure pf1) (ap pf2 pf3) = {!!}
-foo (pure pf1) (ap□ pf2 pf3) = {!!}
-foo (ap pf1 pf2) rfl = {!!}
-foo (ap pf1 pf2) (box pf3) = {!!}
-foo (ap pf1 pf2) (pure pf3) = {!!}
-foo (ap pf1 pf2) (ap pf3 pf4) = {!!}
-foo (ap pf1 pf2) (ap□ pf3 pf4) = {!!}
-foo (ap□ pf1 pf2) rfl = {!!}
-foo (ap□ pf1 pf2) (box pf3) = {!!}
-foo (ap□ pf1 pf2) (arr pf3 pf4) = {!!}
-foo (ap□ pf1 pf2) (pure pf3) = {!!}
-foo (ap□ pf1 pf2) (ap pf3 pf4) = {!!}
-foo (ap□ pf1 pf2) (ap□ pf3 pf4) = {!!}
-
--- foo rfl rfl = refl
--- foo rfl (tr pf2 pf3) = {!!}  -- If tr x y : σ <: σ, then why does (tr x y) ≪ t ≈ t?
--- foo rfl (arr pf2 pf3) = {!!}  -- antisymmetry
--- foo {Γ = Γ} {σ = σ} {t = t} rfl (box pf2) = begin
---   t
---                                           ≈⟨ sym idt ⟩
---   (ap ∙ (pure ∙ ƛ (var vz))) ∙ t
---                                           ≈⟨ cong (λ x → (ap ∙ (pure ∙ ƛ x)) ∙ t) (sym (coerce-id pf2 (var vz))) ⟩
---   (ap ∙ (pure ∙ ƛ (pf2 ≪ var vz))) ∙ t
---   ∎
---   where
---     open ≈-Reasoning Γ σ
-
--- foo (tr pf1 pf2) rfl = {!!}   -- antisymmetry
--- foo (tr pf1 pf2) (tr pf3 pf4) = {!!}  -- this one is terrible, the middle types aren't the same
--- foo (tr pf1 pf2) (arr pf3 pf4) = {!!}
--- foo (tr pf1 pf2) (box pf3) = {!!}
--- foo (tr pf1 pf2) pure = {!!}
--- foo (tr pf1 pf2) ap = {!!}
--- foo (arr pf1 pf2) rfl = {!!}
--- foo (arr pf1 pf2) (tr pf3 pf4) = {!!}
--- foo (arr pf1 pf2) (arr pf3 pf4) = {!!}
--- foo (box pf1) rfl = {!!}
--- foo (box pf1) (tr pf2 pf3) = {!!}
--- foo (box pf1) (box pf2) = cong (λ z → (ap ∙ (pure ∙ ƛ z)) ∙ _) (foo pf1 pf2)
--- foo (box pf1) pure = {!!}
--- foo pure (tr pf2 pf3) = {!!}
--- foo pure (box pf2) = {!!}
--- foo pure pure = refl
--- foo ap (tr pf2 pf3) = {!!}
--- foo ap ap = refl
+foo _ _ = {!!}
