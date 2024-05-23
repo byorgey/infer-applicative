@@ -617,6 +617,13 @@ mapL (s◂t then x) = cons (L x) (mapL s◂t)
 -- boxes-≤ rfl = ≤-refl
 -- boxes-≤ (_then_ {t = □⋆ m′ u} chain step) = {!!}
 
+-- Inversion lemma for pure: any proof of σ <: □ τ where σ has no boxes can always
+-- be rewritten to use pure as the last step.
+pure-inv : {s : BoxTreeNode} {τ : Ty} → BoxTreeNode→Type s ◃ □ τ → BoxTreeNode→Type s ◃ τ
+pure-inv {base x} s◃□τ = <:→◃ (B<:□-inv (◃→<: s◃□τ))
+pure-inv {x ⇒ x₁} (pure s◃□τ) = s◃□τ
+pure-inv {x ⇒ x₁} (ap□ s◃□τ s◃□τ₁) = {!!}
+
 ------------------------------------------------------------
 -- Normalized transitivity-free subtyping proofs
 ------------------------------------------------------------
@@ -630,7 +637,8 @@ data _◃₄_ : BoxTreeNode → BoxTreeNode → Set
 
 data _◃₁_ where
   box : {m n : ℕ} {s t : BoxTreeNode} → □⋆ m s ◃₁ □⋆ n t → □⋆ (suc m) s ◃₁ □⋆ (suc n) t
-  ι₁ : {n : ℕ} {s t : BoxTreeNode} → s ◃₂ □⋆ n t → □⋆ zero s ◃₁ □⋆ n t
+  ι₁₂ : {n : ℕ} {s t : BoxTreeNode} → s ◃₂ □⋆ n t → □⋆ zero s ◃₁ □⋆ n t
+  ι₁₃ : {n : ℕ} {s t : BoxTreeNode} → □⋆ n s ◃₃ t → □⋆ n s ◃₁ □⋆ zero t
 
 data _◃₂_ where
   pure : {n : ℕ} {s t : BoxTreeNode} → s ◃₂ □⋆ n t → s ◃₂ □⋆ (suc n) t
@@ -654,7 +662,8 @@ data _◃₄_ where
 ◃₄→◃ : {s t : BoxTreeNode} → s ◃₄ t → BoxTreeNode→Type s ◃ BoxTreeNode→Type t
 
 ◃₁→◃ (box s◃t) = box (◃₁→◃ s◃t)
-◃₁→◃ (ι₁ s◃t) = ◃₂→◃ s◃t
+◃₁→◃ (ι₁₂ s◃t) = ◃₂→◃ s◃t
+◃₁→◃ (ι₁₃ s◃t) = ◃₃→◃ s◃t
 
 ◃₂→◃ (pure s◃t) = pure (◃₂→◃ s◃t)
 ◃₂→◃ (ι₂ s◃t) = ◃₄→◃ s◃t
@@ -667,10 +676,56 @@ data _◃₄_ where
 ◃₄→◃ (arr p1 p2) = arr (◃₁→◃ p1) (◃₁→◃ p2)
 
 --------------------------------------------------
+-- BoxTy + PlainTy
+
+-- data BoxTy : Set
+-- data PlainTy : Set
+
+-- data BoxTy where
+--   □_ : BoxTy → BoxTy
+--   plain : PlainTy → BoxTy
+
+-- data PlainTy where
+--   base : B → PlainTy
+--   _⇒_ : BoxTy → BoxTy → PlainTy
+
+-- Ty→BoxTy : Ty → BoxTy
+-- Ty→BoxTy (base b) = plain (base b)
+-- Ty→BoxTy (σ ⇒ τ) = plain (Ty→BoxTy σ ⇒ Ty→BoxTy τ)
+-- Ty→BoxTy (□ τ) = □ (Ty→BoxTy τ)
+
+-- BoxTy→Ty : BoxTy → Ty
+-- PlainTy→Ty : PlainTy → Ty
+
+-- BoxTy→Ty (□ t) = □ (BoxTy→Ty t)
+-- BoxTy→Ty (plain p) = PlainTy→Ty p
+
+-- PlainTy→Ty (base b) = base b
+-- PlainTy→Ty (s ⇒ t) = BoxTy→Ty s ⇒ BoxTy→Ty t
+
+--------------------------------------------------
 -- Subtyping proof normalization
 
-◃→◃₁ : {σ τ : Ty} → σ ◃ τ → Type→BoxTree σ ◃₁ Type→BoxTree τ
-◃→◃₁ = {!!}
+◃→◃₁ : {s t : BoxTree} → BoxTree→Type s ◃ BoxTree→Type t → s ◃₁ t
+◃→◃₂ : {s : BoxTreeNode} {t : BoxTree} → BoxTreeNode→Type s ◃ BoxTree→Type t → s ◃₂ t
+◃→◃₃ : {s : BoxTree} {t : BoxTreeNode} → BoxTree→Type s ◃ BoxTreeNode→Type t → s ◃₃ t
+◃→◃₄ : {s t : BoxTreeNode} → BoxTreeNode→Type s ◃ BoxTreeNode→Type t → s ◃₄ t
+
+◃→◃₁ {□⋆ (suc m) s} {□⋆ (suc n) t} s◃t = box (◃→◃₁ (□-inv s◃t))
+◃→◃₁ {□⋆ (suc m) s} {□⋆ zero t} s◃t = ι₁₃ (◃→◃₃ s◃t)
+◃→◃₁ {□⋆ zero s} {□⋆ n t} s◃t = ι₁₂ (◃→◃₂ s◃t)
+
+◃→◃₂ {s} {□⋆ zero t} s◃t = ι₂ (◃→◃₄ s◃t)
+◃→◃₂ {s} {□⋆ (suc n) t} s◃t = pure (◃→◃₂ (pure-inv s◃t))
+
+◃→◃₃ {□⋆ zero s} {t} s◃t = ι₃ (◃→◃₄ s◃t)
+◃→◃₃ {□⋆ (suc n) s} {t} s◃t = ap {!!} {!!}
+
+◃→◃₄ {base b} {base .b} rfl = rfl
+◃→◃₄ {base _} {base _} (ap□ s◃t _) = ⊥-elim (¬B<:⇒ (◃→<: s◃t))
+◃→◃₄ {base _} {_ ⇒ _} s◃t = ⊥-elim (¬B<:⇒ (◃→<: s◃t))
+◃→◃₄ {_ ⇒ _} {base _} s◃t = ⊥-elim (¬⇒<:B (◃→<: s◃t))
+◃→◃₄ {_ ⇒ _} {_ ⇒ _} s◃t = {!!}
 
 ------------------------------------------------------------
 -- Decidability of subtyping
