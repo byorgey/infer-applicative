@@ -719,7 +719,10 @@ data _◃₄_ where
 ◃→◃₂ {s} {□⋆ (suc n) t} s◃t = pure (◃→◃₂ (pure-inv s◃t))
 
 ◃→◃₃ {□⋆ zero s} {t} s◃t = ι₃ (◃→◃₄ s◃t)
-◃→◃₃ {□⋆ (suc n) s} {t} s◃t = ap {!!} {!!}
+◃→◃₃ {□⋆ (suc n) s} {t@(base _)} (ap s◃t s◃t₁) = ap (◃→◃₃ s◃t) (◃→◃₄ s◃t₁)
+◃→◃₃ {□⋆ (suc n) s} {t@(base _)} (ap□ s◃t s◃t₁) = ap {!!} (◃→◃₄ s◃t₁)
+◃→◃₃ {□⋆ (suc n) s} {t@(_ ⇒ _)} (ap s◃t s◃t₁) = ap (◃→◃₃ s◃t) (◃→◃₄ s◃t₁)
+◃→◃₃ {□⋆ (suc n) s} {t@(_ ⇒ _)} (ap□ s◃t s◃t₁) = ap {!!} (◃→◃₄ s◃t₁)
 
 ◃→◃₄ {base b} {base .b} rfl = rfl
 ◃→◃₄ {base _} {base _} (ap□ s◃t _) = ⊥-elim (¬B<:⇒ (◃→<: s◃t))
