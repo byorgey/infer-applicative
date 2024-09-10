@@ -1,3 +1,5 @@
+open import Data.Empty
+open import Data.Unit
 open import Data.Product
 open import Relation.Binary.PropositionalEquality
 open import Relation.Binary using (DecidableEquality)
@@ -92,3 +94,32 @@ boxity-ap σ τ = begin-equality
 
 boxity-ap-< : (σ τ : Ty) → boxity (□ (σ ⇒ τ)) < boxity (□ σ ⇒ □ τ)
 boxity-ap-< σ τ = ≡suc⇒< (boxity-ap σ τ)
+
+------------------------------------------------------------
+-- Iterated-box-free types
+------------------------------------------------------------
+
+□free : Ty → Set
+□□free : Ty → Set
+
+□free (base _) = ⊤
+□free (σ ⇒ τ) = □□free σ × □□free τ
+□free (□ τ) = ⊥
+
+□□free (base _) = ⊤
+□□free (σ ⇒ τ) = □□free σ × □□free τ
+□□free (□ τ) = □free τ
+
+□free-□□free : {τ : Ty} → □free τ → □□free τ
+□free-□□free {base x} tt = tt
+□free-□□free {σ ⇒ τ} (□□free-σ , □□free-τ) = □□free-σ , □□free-τ
+
+ex1 : {b : B} → □□free (□ (base b ⇒ □ base b))
+ex1 = tt , tt
+
+ex2 : {a b c : B} → □□free (□ (□ base a ⇒ □ (□ base b ⇒ □ base c)))
+ex2 = tt , tt , tt
+
+□Ty : Set
+□Ty = Σ Ty □□free
+
