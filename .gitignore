@@ -8,6 +8,14 @@
 *.cut
 *.ptb
 *.tex
+*.vrb
+*.toc
+*.snm
+*.nav
+
+TAGS
+
+.shake
 
 paper/ott/*.tex
 
