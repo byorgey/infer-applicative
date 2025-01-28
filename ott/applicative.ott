@@ -21,14 +21,12 @@ grammar
     | x                   ::   :: var                     {{ com variable }}
     | \ x . t             ::   :: lam  (+ bind x in t +)  {{ com abstraction }}
     | t t'                ::   :: app                     {{ com application }}
-    | n                   ::   :: nat                     {{ com natural literal }}
     | c                   ::   :: con                     {{ com constant }}
     | pure                ::   :: pure                    {{ com pure }}
     | ap                  ::   :: ap                      {{ com ap }}
-    | ( t )               :: S :: paren
+    | ( t )               :: M :: paren
 
   value, v :: 'v_' ::=                                  {{ com value }}
-    | n                   ::   :: nat                     {{ com natural number }}
     | c                   ::   :: con                     {{ com constant }}
     | \ x . t             ::   :: lam                     {{ com abstraction }}
 
@@ -164,6 +162,6 @@ defns
     ------------ :: emb
     G |-<: t : T
 
-    G |-<: x : S     S <: T
+    G |-<: t : S     S <: T
     --------------------- :: sub
-    G |-<: x : T
+    G |-<: t : T

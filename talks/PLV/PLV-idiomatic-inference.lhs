@@ -9,14 +9,24 @@
 %format <$> = "\mathbin{\langle \$ \rangle}"
 %format <*> = "\mathbin{\langle * \rangle}"
 
+\usepackage{amsmath}
+\usepackage{wasysym}
 \usepackage{xspace}
 \usepackage{ulem}
 \usepackage{qtree}
 \usepackage{graphicx}
 \graphicspath{{images/}}
+\usepackage{supertabular}
+\usepackage{ifthen}
+
+\input{../../ott/applicative_defns.tex}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newtheorem{thm}{Theorem}
+\newtheorem{conj}{Conjecture}
+\newtheorem{fls}{Not A Theorem \frownie}
 
 \newcommand{\etc}{\textit{etc.}}
 \newcommand{\eg}{\textit{e.g.}\xspace}
@@ -58,7 +68,7 @@
       \frametitle{}
 
       \begin{center}
-        \includegraphics[width=3in]{\sectionimg}
+        \includegraphics[width=3in,height=2in,keepaspectratio=true]{\sectionimg}
         \bigskip
 
         {\Huge \usebeamercolor[fg]{title}\insertsectionhead}
@@ -123,27 +133,97 @@
   \titlepage
 \end{xframe}
 
-XXX pick section images
-\def\sectionimg{egypt}
-\section{Introduction}
+\def\sectionimg{swarm-world}
+\section{Motivation}
 
 \begin{xframe}{Swarm}
-  XXX include Swarm screenshot
+  \begin{center}
+    \includegraphics[width=3in]{main-menu} \bigskip
+
+    \url{https://swarm-game.github.io/}
+  \end{center}
   \note{So I have this game \dots}
 \end{xframe}
 
 \begin{xframe}{World generation DSL}
-  XXX show example world DSL code + resulting world (maybe even a
-  couple different examples, one slide each)
+  \begin{center}
+    \begin{minipage}{0.4\textwidth}
+      \begin{center}
+        \tiny
+\begin{verbatim}
+let
+  pn0 = perlin seed 6 0.05 0.6,
+  pn1 = perlin (seed + 1) 6 0.05 0.6,
+  ...
+in
+overlay
+[ mask (big && hard && artificial)
+    (if (cl > 0.85) then {stone, copper ore} else {stone})
+, mask (big && hard && natural)
+  ( overlay
+    [ {grass}
+    , mask (cl > 0.0)
+        (if (hash % 30 == 1)
+          then {dirt, LaTeX}
+          else {dirt, tree})
+    , mask (hash % 30 == 0) {stone, boulder}
+    , mask (cl > 0.5) {stone, mountain}
+    ]
+  )
+, ...
+]
+\end{verbatim}
+      \end{center}
+    \end{minipage}
+    \begin{minipage}{0.5\textwidth}
+      \begin{center}
+        \includegraphics[width=\textwidth]{swarm-world}
+      \end{center}
+    \end{minipage}
+  \end{center}
 \end{xframe}
 
+\begin{xframe}{World generation DSL}
+  \begin{center}
+    \begin{minipage}{0.5\textwidth}
+      \begin{center}
+        |grass|
+      \end{center}
+    \end{minipage}
+    \hspace{0.3in}
+    \begin{minipage}{0.4\textwidth}
+      \begin{center}
+        \includegraphics[width=\textwidth]{grass}
+      \end{center}
+    \end{minipage}
+  \end{center}
+\end{xframe}
+
+\begin{xframe}{World generation DSL}
+  \begin{center}
+    \begin{minipage}{0.4\textwidth}
+      \begin{center}
+        |if (x > 3) then water else grass|
+      \end{center}
+    \end{minipage}
+    \hspace{0.3in}
+    \begin{minipage}{0.4\textwidth}
+      \begin{center}
+        \includegraphics[width=\textwidth]{grass-water}
+      \end{center}
+    \end{minipage}
+  \end{center}
+\end{xframe}
+
+
 \begin{xframe}{Types?}
-  XXX get rid of bullets, reveal one at a time
   \begin{itemize}
-  \item In general, |W a = Coords -> a|.
-  \item A top-level expression describing a world has type |W Cell|.
-  \item |x, y : W Int|.
-  \item |if (x > 3) grass water : W Cell| ?
+  \item<+-> |W a = (Int, Int) -> a|.
+  \item<+-> A top-level expression describing a world has type |W Cell|.
+  \item<+-> |grass, water : Cell|
+  \item<+-> |if : Bool -> a -> a -> a|
+  \item<+-> |x, y : W Int|
+  \item<+-> |if (x > 3) then water else grass : W Cell| ?
   \end{itemize}
 \end{xframe}
 
@@ -151,6 +231,7 @@ XXX pick section images
   |if uniform(0,1) > 0.2 then "hello" else "world" : Distribution String|
 \end{xframe}
 
+\def\sectionimg{IdiomLite}
 \section{Applicative Functors}
 
 \begin{xframe}{Definition}
@@ -190,15 +271,15 @@ XXX pick section images
 
 \begin{xframe}{Example: |W|}
   \begin{center}
-    |if (x > 3) grass water : W Cell| \bigskip
+    |if (x > 3) then water else grass : W Cell| \bigskip
 
     $\Downarrow$ \bigskip
 
-    |ap (ap (pure if) (ap (ap (pure (>)) x) (pure 3)) (pure grass)) (pure water)| \bigskip
+    |ap (ap (pure if) (ap (ap (pure (>)) x) (pure 3)) (pure water)) (pure grass)| \bigskip
 
     $=$ \bigskip
 
-    |if <$> ((>) <$> x <*> pure 3) <*> pure grass <*> pure water|
+    |if <$> ((>) <$> x <*> pure 3) <*> pure water <*> pure grass|
   \end{center}
 \end{xframe}
 
@@ -208,9 +289,207 @@ XXX pick section images
   \end{center}
 \end{xframe}
 
+\def\sectionimg{principia}
 \section{Formalization}
 
+\begin{xframe}{}
+  \ottgrammartabular{\ottterm\ottinterrule\otttype\ottafterlastrule}
+\end{xframe}
+
+\begin{xframe}{}
+\begin{ottdefnblock}[#1]{$\Gamma  \vdash  \ottnt{t}  \ottsym{:}  \tau$}{\ottcom{$\ottnt{t}$ has type $\tau$ in context $\Gamma$}}
+\ottusedrule{\ottdruletyXXvar{}}
+\ottusedrule{\ottdruletyXXlam{}}
+\ottusedrule{\ottdruletyXXapp{}}
+\ottusedrule{\ottdruletyXXconst{}}
+\end{ottdefnblock}
+\end{xframe}
+
+\begin{xframe}{}
+\begin{ottdefnblock}{$\Gamma  \vdash  \ottnt{t}  \ottsym{:}  \tau$}{\ottcom{$\ottnt{t}$ has type $\tau$ in context $\Gamma$}}
+\ottusedrule{\ottdruletyXXpure{}}
+\ottusedrule{\ottdruletyXXap{}}
+\end{ottdefnblock}
+\end{xframe}
+
+\begin{xframe}{}
+\begin{ottdefnblock}{$\tau_{{\mathrm{1}}}  \mathrel{<:}  \tau_{{\mathrm{2}}}$}{\ottcom{$\tau_{{\mathrm{1}}}$ is a subtype of $\tau_{{\mathrm{2}}}$}}
+\ottusedrule{\ottdrulesubXXrefl{}}
+\ottusedrule{\ottdrulesubXXtrans{}}
+\ottusedrule{\ottdrulesubXXarr{}}
+\end{ottdefnblock}
+\end{xframe}
+
+\begin{xframe}{}
+\begin{ottdefnblock}{$\tau_{{\mathrm{1}}}  \mathrel{<:}  \tau_{{\mathrm{2}}}$}{\ottcom{$\tau_{{\mathrm{1}}}$ is a subtype of $\tau_{{\mathrm{2}}}$}}
+\ottusedrule{\ottdrulesubXXpure{}}
+\ottusedrule{\ottdrulesubXXap{}}
+\end{ottdefnblock}
+\end{xframe}
+
+\begin{xframe}{}
+\begin{ottdefnblock}{$\tau_{{\mathrm{1}}}  \mathrel{<:}  \tau_{{\mathrm{2}}}$}{\ottcom{$\tau_{{\mathrm{1}}}$ is a subtype of $\tau_{{\mathrm{2}}}$}}
+\ottusedrule{\ottdrulesubXXbox{}}
+\end{ottdefnblock}
+\end{xframe}
+
+\begin{xframe}{}
+  \ottdefnstype{}
+\end{xframe}
+
+\begin{xframe}{Elaboration}
+  \begin{itemize}
+  \item $\sigma \mathrel{<:} \tau$ elaborates to an explicit coercion term with type
+    $\sigma \to \tau$
+  \item $\Gamma \vdash_{<:} t : \tau$ elaborates to $\Gamma \vdash t'
+    : \tau$, where all uses of subtyping have been replaced by an
+    application of a coercion term
+  \end{itemize}
+\end{xframe}
+
+\def\sectionimg{sub}
 \section{Applicative Subtyping}
+
+\begin{xframe}{}
+  \begin{center}
+    Is $\sigma <: \tau$ decidable?
+  \end{center}
+\end{xframe}
+
+\begin{xframe}{Transitivity is annoying}
+\ottusedrule{\ottdrulesubXXtrans{}}
+\end{xframe}
+
+\begin{xframe}{Transitivity-free subtyping?}
+\begin{ottdefnblock}[#1]{$\tau_{{\mathrm{1}}}  \vartriangleleft  \tau_{{\mathrm{2}}}$}{\ottcom{$\tau_{{\mathrm{1}}}$ is a subtype of $\tau_{{\mathrm{2}}}$}}
+\ottusedrule{\ottdrulesubtXXrefl{}}
+\ottusedrule{\ottdrulesubtXXarr{}}
+\end{ottdefnblock}
+\end{xframe}
+
+\begin{xframe}{Transitivity-free subtyping?}
+\begin{ottdefnblock}[#1]{$\tau_{{\mathrm{1}}}  \vartriangleleft  \tau_{{\mathrm{2}}}$}{\ottcom{$\tau_{{\mathrm{1}}}$ is a subtype of $\tau_{{\mathrm{2}}}$}}
+\ottusedrule{\ottdrulesubtXXbox{}}
+\ottusedrule{\ottdrulesubtXXpure{}}
+\ottusedrule{\ottdrulesubtXXap{}}
+\end{ottdefnblock}
+\end{xframe}
+
+\begin{xframe}{Transitivity-free subtyping?}
+\begin{ottdefnblock}[#1]{$\tau_{{\mathrm{1}}}  \vartriangleleft  \tau_{{\mathrm{2}}}$}{\ottcom{$\tau_{{\mathrm{1}}}$ is a subtype of $\tau_{{\mathrm{2}}}$}}
+\ottusedrule{\ottdrulesubtXXap{}}
+\ottusedrule{\ottdrulesubtXXpureap{}}
+\end{ottdefnblock} \smallskip
+
+\begin{center}
+  \onslide<2> $(\sigma <: \tau) \iff (\sigma \vartriangleleft \tau)$: Proved in Agda! $\checkmark$
+\end{center}
+\end{xframe}
+
+\begin{xframe}{Box-tree model}
+  XXX draw box trees, show rules
+  XXX also proved in Agda
+\end{xframe}
+
+\begin{xframe}{So: is subtyping decidable?}
+  Surely yes?  But showing it is tricky.  Seems to require some kind
+  of integer linear programming. XXX
+\end{xframe}
+
+\def\sectionimg{duck-rabbit}
 \section{Ambiguity and Coherence}
+
+\begin{xframe}{Coherence}
+  \begin{thm}
+    Any two derivations of $\Gamma \vdash_{<:} t : \tau$ elaborate
+    to terms that are equivalent up to $\beta$, $\eta$, and the
+    applicative laws.
+  \end{thm}
+
+  \note{Really important since it means there are no surprises for the
+  programmer and no dependence on hidden behavior of inference algorithm.
+
+  Unfortunately, this is false!!}
+\end{xframe}
+
+\begin{xframe}{\sout{Coherence}}
+  \begin{fls}
+    Any two derivations of $\Gamma \vdash_{<:} t : \tau$ elaborate
+    to terms that are equivalent up to $\beta$, $\eta$, and the
+    applicative laws.
+  \end{fls}
+\end{xframe}
+
+\begin{xframe}{Counterexample}
+  \begin{center}
+    |\x -> x : BOX B -> BOX BOX B| \bigskip
+
+  \begin{minipage}{0.4\linewidth}
+    \begin{align*}
+      &\phantom{<:} |B -> B| \\
+      &<: |B -> BOX B| \\
+      &<: |BOX(B -> BOX B)| \\
+      &<: |BOX B -> BOX BOX B| \\
+      &\rightsquigarrow |fmap pure|
+    \end{align*}
+  \end{minipage}
+  \begin{minipage}{0.4\linewidth}
+    \begin{align*}
+      &\phantom{<:} |B -> B| \\
+      &<: |BOX (B -> B)| \\
+      &<: |BOX BOX (B -> B)| \\
+      &<: |BOX (BOX B -> BOX B)| \\
+      &<: |BOX BOX B -> BOX BOX B| \\
+      &<: |BOX B -> BOX BOX B| \\
+      &\rightsquigarrow |pure|
+    \end{align*}
+  \end{minipage}
+  \end{center}
+\end{xframe}
+
+\begin{xframe}{No nesting?}
+  \begin{center}
+    Intuitively, the problem has to do with nested boxes, like |BOX
+    BOX B|. \bigskip
+
+    But we often don't need or want that.
+  \end{center}
+\end{xframe}
+
+\begin{xframe}{}
+  Call a type ``boxbox-free'' if it has no immediately nested boxes. \medskip
+  \begin{conj}[Coherence]
+    Any two derivations of $\Gamma \vdash_{<:} t : \tau$ elaborate to
+    terms that are equivalent up to $\beta$, $\eta$, and the
+    applicative laws, \emph{as long as all embedded subtyping
+    judgments are boxbox-free}.
+  \end{conj}
+\end{xframe}
+
+\begin{xframe}{}
+  \begin{conj}
+    If $\tau$ and all the types in $\Gamma$ are boxbox-free, then so
+    are all the types that show up anywhere in a derivation $\Gamma
+    \vdash_{<:} t : \tau$.
+  \end{conj}
+
+  \onslide<2->{In particular, if $\Gamma = \varnothing$ and the final type we
+  want has a single box, then there can never be any nested boxes
+  anywhere.}
+
+  \onslide<3>{Definitely not true for monads!}
+\end{xframe}
+
+\def\sectionimg{future}
+\section{Future Work}
+
+\begin{xframe}{Future Work}
+  \begin{itemize}
+  \item Prove conjectures!
+  \item Explore how to write effective + efficient inference procedures
+  \item Incorporate product and sum types
+  \item Extend to selective functors
+  \end{itemize}
+\end{xframe}
 
 \end{document}

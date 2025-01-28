@@ -13,6 +13,10 @@ main :: IO ()
 main = shake shakeOptions $ do
   want ["PLV-idiomatic-inference.pdf"]
 
+  "../../ott/applicative_defns.tex" %> \_ -> do
+    need ["../../ott/applicative.ott"]
+    cmd (Cwd "../../ott") "ott" $ ["-i", "applicative.ott", "-o", "applicative_defns.tex", "-tex_show_meta", "false", "-tex_wrap", "false"]
+
   "*.tex" %> \output -> do
     let input = replaceExtension output "lhs"
     need [input]
@@ -21,6 +25,7 @@ main = shake shakeOptions $ do
   "*.pdf" %> \output -> do
     let input = replaceExtension output "tex"
     need [input]
+    need ["../../ott/applicative_defns.tex"]
 
     -- need ["Diagrams.hs"]  -- for document-specific diagrams
 
