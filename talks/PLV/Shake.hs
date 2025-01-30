@@ -22,10 +22,21 @@ main = shake shakeOptions $ do
     need [input]
     cmd lhs2TeX $ ["-o", output] ++ [input]
 
+  "diagrams/*.pgf" %> \_ -> do
+    need ["diagrams/Diagrams.hs"]
+    cmd_ (Cwd "diagrams") "./Diagrams.hs"
+
   "*.pdf" %> \output -> do
     let input = replaceExtension output "tex"
     need [input]
     need ["../../ott/applicative_defns.tex"]
+    need ["diagrams/B->B.pgf"]
+    need ["diagrams/B->xB.pgf"]
+    need ["diagrams/x(B->B).pgf"]
+    need ["diagrams/(B->B)->B.pgf"]
+    need ["diagrams/box-rules.pgf"]
+    need ["diagrams/chains.pgf"]
+    need ["diagrams/random.pgf"]
 
     -- need ["Diagrams.hs"]  -- for document-specific diagrams
 

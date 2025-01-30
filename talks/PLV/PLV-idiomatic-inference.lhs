@@ -18,6 +18,7 @@
 \graphicspath{{images/}}
 \usepackage{supertabular}
 \usepackage{ifthen}
+\usepackage{pgf}
 
 \input{../../ott/applicative_defns.tex}
 
@@ -285,7 +286,10 @@ overlay
 
 \begin{xframe}{Question}
   \begin{center}
-    How and when can we automatically insert |pure| and |ap|?
+    How and when can we automatically insert |pure| and |ap|? \bigskip
+
+    \onslide<2>{Implemented in Swarm world DSL\dots but is it correct?  And
+      how does it generalize?}
   \end{center}
 \end{xframe}
 
@@ -310,6 +314,15 @@ overlay
 \ottusedrule{\ottdruletyXXpure{}}
 \ottusedrule{\ottdruletyXXap{}}
 \end{ottdefnblock}
+\end{xframe}
+
+\begin{xframe}{}
+  \begin{center}
+    So far, |pure| and |ap| must be explicitly included\dots how to
+    model the possibility to infer them? \bigskip
+
+    \onslide<2>{Subtyping!}
+  \end{center}
 \end{xframe}
 
 \begin{xframe}{}
@@ -343,57 +356,95 @@ overlay
     $\sigma \to \tau$
   \item $\Gamma \vdash_{<:} t : \tau$ elaborates to $\Gamma \vdash t'
     : \tau$, where all uses of subtyping have been replaced by an
-    application of a coercion term
+    application of an elaborated coercion term
   \end{itemize}
+\end{xframe}
+
+\begin{xframe}{}
+  \begin{center}
+    Question: is $\sigma <: \tau$ decidable?
+  \end{center}
 \end{xframe}
 
 \def\sectionimg{sub}
 \section{Applicative Subtyping}
 
-\begin{xframe}{}
-  \begin{center}
-    Is $\sigma <: \tau$ decidable?
-  \end{center}
-\end{xframe}
-
 \begin{xframe}{Transitivity is annoying}
 \ottusedrule{\ottdrulesubXXtrans{}}
 \end{xframe}
 
-\begin{xframe}{Transitivity-free subtyping?}
+\begin{xframe}{Transitivity-free subtyping}
 \begin{ottdefnblock}[#1]{$\tau_{{\mathrm{1}}}  \vartriangleleft  \tau_{{\mathrm{2}}}$}{\ottcom{$\tau_{{\mathrm{1}}}$ is a subtype of $\tau_{{\mathrm{2}}}$}}
 \ottusedrule{\ottdrulesubtXXrefl{}}
 \ottusedrule{\ottdrulesubtXXarr{}}
 \end{ottdefnblock}
 \end{xframe}
 
-\begin{xframe}{Transitivity-free subtyping?}
+\begin{xframe}{Transitivity-free subtyping}
 \begin{ottdefnblock}[#1]{$\tau_{{\mathrm{1}}}  \vartriangleleft  \tau_{{\mathrm{2}}}$}{\ottcom{$\tau_{{\mathrm{1}}}$ is a subtype of $\tau_{{\mathrm{2}}}$}}
 \ottusedrule{\ottdrulesubtXXbox{}}
 \ottusedrule{\ottdrulesubtXXpure{}}
 \ottusedrule{\ottdrulesubtXXap{}}
+\onslide<2>{\ottusedrule{\ottdrulesubtXXpureap{}}}
 \end{ottdefnblock}
 \end{xframe}
 
-\begin{xframe}{Transitivity-free subtyping?}
-\begin{ottdefnblock}[#1]{$\tau_{{\mathrm{1}}}  \vartriangleleft  \tau_{{\mathrm{2}}}$}{\ottcom{$\tau_{{\mathrm{1}}}$ is a subtype of $\tau_{{\mathrm{2}}}$}}
-\ottusedrule{\ottdrulesubtXXap{}}
-\ottusedrule{\ottdrulesubtXXpureap{}}
-\end{ottdefnblock} \smallskip
-
+\begin{xframe}{Transitivity-free subtyping}
 \begin{center}
-  \onslide<2> $(\sigma <: \tau) \iff (\sigma \vartriangleleft \tau)$: Proved in Agda! $\checkmark$
+  $(\sigma <: \tau) \iff (\sigma \vartriangleleft \tau)$: Proved in Agda! $\checkmark$
 \end{center}
 \end{xframe}
 
-\begin{xframe}{Box-tree model}
-  XXX draw box trees, show rules
-  XXX also proved in Agda
+\begin{xframe}{Tree model}
+  \begin{center}
+    |B -> B| \bigskip
+
+    \input{diagrams/B->B.pgf}
+  \end{center}
+\end{xframe}
+
+\begin{xframe}{Tree model}
+  \begin{center}
+    |(B -> B) -> B| \bigskip
+
+    \input{diagrams/(B->B)->B.pgf}
+  \end{center}
+\end{xframe}
+
+\begin{xframe}{Tree model}
+  \begin{center}
+    |B -> BOX B| \bigskip
+
+    \input{diagrams/B->xB.pgf}
+  \end{center}
+\end{xframe}
+
+\begin{xframe}{Tree model}
+  \begin{center}
+    |BOX (B -> B)| \bigskip
+
+    \input{diagrams/x(B->B).pgf}
+  \end{center}
+\end{xframe}
+
+\begin{xframe}{Subtyping rules}
+  \begin{center}
+    \input{diagrams/box-rules.pgf}
+  \end{center}
+\end{xframe}
+
+\begin{xframe}{Subtyping}
+  \begin{center}
+    \input{diagrams/chains.pgf}
+  \end{center}
 \end{xframe}
 
 \begin{xframe}{So: is subtyping decidable?}
-  Surely yes?  But showing it is tricky.  Seems to require some kind
-  of integer linear programming. XXX
+  \begin{center}
+    \dots probably?  But\dots tricky! \bigskip
+
+    \input{diagrams/random.pgf}
+  \end{center}
 \end{xframe}
 
 \def\sectionimg{duck-rabbit}
@@ -475,9 +526,10 @@ overlay
 
   \onslide<2->{In particular, if $\Gamma = \varnothing$ and the final type we
   want has a single box, then there can never be any nested boxes
-  anywhere.}
+  anywhere. \medskip}
 
-  \onslide<3>{Definitely not true for monads!}
+  \onslide<3>{Definitely not true for monads! |join : BOX BOX a -> BOX
+  a| lets us hide nested boxes anywhere.}
 \end{xframe}
 
 \def\sectionimg{future}
@@ -485,7 +537,7 @@ overlay
 
 \begin{xframe}{Future Work}
   \begin{itemize}
-  \item Prove conjectures!
+  \item Prove conjectures / find the right things to prove
   \item Explore how to write effective + efficient inference procedures
   \item Incorporate product and sum types
   \item Extend to selective functors
