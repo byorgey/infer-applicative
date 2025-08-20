@@ -15,6 +15,8 @@ data Boxity : Set where
   [0] : Boxity
   [1] : Boxity
 
+variable b b₁ b₂ b₃ b₄ : Boxity
+
 Boxity-≟ : DecidableEquality Boxity
 Boxity-≟ [0] [0] = yes refl
 Boxity-≟ [0] [1] = no λ ()
@@ -37,6 +39,9 @@ data Ty where
 
 infixr 2 _⇒_
 infix 30 □_
+
+_⇒′_ : {b₁ b₂ : Boxity} → Ty b₁ → Ty b₂ → Ty [0]
+_⇒′_ {b₁} {b₂} σ τ = (b₁ , σ) ⇒ (b₂ , τ)
 
 □-inj : {τ₁ τ₂ : Ty [0]} → (□ τ₁ ≡ □ τ₂) → (τ₁ ≡ τ₂)
 □-inj refl = refl
@@ -69,3 +74,16 @@ Ty-≟ (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) with ΣTy-≟ σ₁ τ₁ | ΣTy-≟ 
 ... | yes refl | yes refl = yes refl
 Ty-≟ (base _) (_ ⇒ _) = no λ ()
 Ty-≟ (_ ⇒ _) (base _) = no λ ()
+
+------------------------------------------------------------
+-- Subtyping on one level indexed types
+------------------------------------------------------------
+
+data _<:_ : Ty b₁ → Ty b₂ → Set where
+  rfl : {τ : Ty b} → τ <: τ
+  tr : {σ : Ty b₁} {τ : Ty b₂} {υ : Ty b₃} → σ <: τ → τ <: υ → σ <: υ
+  arr : {τ₁ : Ty b₁} {τ₂ : Ty b₂} {σ₁ : Ty b₃} {σ₂ : Ty b₄} → (τ₁ <: σ₁) → (σ₂ <: τ₂) → (σ₁ ⇒′ σ₂) <: (τ₁ ⇒′ τ₂)
+  box : {σ τ : Ty [0]} → (σ <: τ) → (□ σ <: □ τ)
+  pure : {τ : Ty [0]} → τ <: □ τ
+  ap : {σ τ : Ty [0]} → □ (σ ⇒′ τ) <: (□ σ ⇒′ □ τ)
+
