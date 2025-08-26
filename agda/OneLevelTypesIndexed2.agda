@@ -2,7 +2,7 @@ open import Data.Bool
 open import Data.Product using (Σ ; _×_ ; _,_ ; -,_ ; proj₁ ; proj₂ )
 open import Data.Product.Properties using (≡-dec)
 open import Function using (_∘_)
-open import Relation.Binary using (DecidableEquality)
+open import Relation.Binary using (Decidable; DecidableEquality)
 open import Relation.Binary.PropositionalEquality
 open import Relation.Nullary.Decidable using (yes; no; Dec)
 open import Relation.Nullary.Negation.Core
@@ -14,16 +14,16 @@ module OneLevelTypesIndexed2 (B : Set) (≟B : DecidableEquality B) where
 ------------------------------------------------------------
 
 data Boxity : Set where
-  [0] : Boxity
-  [1] : Boxity
+  ₀ : Boxity
+  ₁ : Boxity
 
-variable b b₁ b₂ b₃ b₄ : Boxity
+variable b b₁ b₂ b₃ b₄ b₅ : Boxity
 
 Boxity-≟ : DecidableEquality Boxity
-Boxity-≟ [0] [0] = yes refl
-Boxity-≟ [0] [1] = no λ ()
-Boxity-≟ [1] [0] = no λ ()
-Boxity-≟ [1] [1] = yes refl
+Boxity-≟ ₀ ₀ = yes refl
+Boxity-≟ ₀ ₁ = no λ ()
+Boxity-≟ ₁ ₀ = no λ ()
+Boxity-≟ ₁ ₁ = yes refl
 
 ------------------------------------------------------------
 -- Path-dependent equality
@@ -43,17 +43,17 @@ undep p = p
 ------------------------------------------------------------
 
 data Ty : Boxity → Set where
-  □_ : Ty [0] → Ty [1]
-  base : B → Ty [0]
-  _⇒_ : {b₁ b₂ : Boxity} → Ty b₁ → Ty b₂ → Ty [0]
+  □_ : Ty ₀ → Ty ₁
+  base : B → Ty ₀
+  _⇒_ : {b₁ b₂ : Boxity} → Ty b₁ → Ty b₂ → Ty ₀
 
 infixr 2 _⇒_
 infix 30 □_
 
-□-inj : {τ₁ τ₂ : Ty [0]} → (□ τ₁ ≡ □ τ₂) → (τ₁ ≡ τ₂)
+□-inj : {τ₁ τ₂ : Ty ₀} → (□ τ₁ ≡ □ τ₂) → (τ₁ ≡ τ₂)
 □-inj refl = refl
 
-base-inj : {b₁ b₂ : B} → base b₁ ≡ base b₂ → b₁ ≡ b₂
+base-inj : {t₁ t₂ : B} → base t₁ ≡ base t₂ → t₁ ≡ t₂
 base-inj refl = refl
 
 ⇒-inj : {σ₁ : Ty b₁} {σ₂ : Ty b₂} {τ₁ : Ty b₁} {τ₂ : Ty b₂} → (σ₁ ⇒ σ₂) ≡ (τ₁ ⇒ τ₂) → (σ₁ ≡ τ₁) × (σ₂ ≡ τ₂)
@@ -100,7 +100,7 @@ Ty-≟ {b} σ τ with Ty-≟′ σ τ
 -- Box erasure
 ------------------------------------------------------------
 
-⌊_⌋ : Ty b → Ty [0]
+⌊_⌋ : Ty b → Ty ₀
 ⌊ □ τ ⌋ = ⌊ τ ⌋
 ⌊ base x ⌋ = base x
 ⌊ σ ⇒ τ ⌋ = ⌊ σ ⌋ ⇒ ⌊ τ ⌋
@@ -129,3 +129,115 @@ infix 1 _<:_
 <:→⌊⌋ (box σ<:τ) = <:→⌊⌋ σ<:τ
 <:→⌊⌋ pure = refl
 <:→⌊⌋ ap = refl
+
+------------------------------------------------------------
+-- Transitivity-free subtyping
+------------------------------------------------------------
+
+infix 1 _◃_
+
+data _◃_ : Ty b₁ → Ty b₂ → Set where
+  rfl : {τ : Ty b} → τ ◃ τ
+  box : {σ τ : Ty ₀} → (σ ◃ τ) → □ σ ◃ □ τ
+  arr : {σ₁ : Ty b₁} {σ₂ : Ty b₂} {τ₁ : Ty b₃} {τ₂ : Ty b₄} → (τ₁ ◃ σ₁) → (σ₂ ◃ τ₂) → (σ₁ ⇒ σ₂ ◃ τ₁ ⇒ τ₂)
+  pure : {σ : Ty b} {τ : Ty ₀} → (σ ◃ τ) → σ ◃ □ τ
+  ap : {σ σ₁ σ₂ : Ty ₀} {τ : Ty b} → (σ ◃ σ₁ ⇒ σ₂) → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (□ σ ◃ τ)
+  ap□ : {σ : Ty b₁} {σ₁ σ₂ : Ty ₀} {τ : Ty b₂} → (σ ◃ σ₁ ⇒ σ₂) → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (σ ◃ τ)
+
+◃→<: : {σ : Ty b₁} {τ : Ty b₂} → σ ◃ τ → σ <: τ
+◃→<: rfl = rfl
+◃→<: (box σ◃τ) = box (◃→<: σ◃τ)
+◃→<: (pure σ◃τ) = tr (◃→<: σ◃τ) pure
+◃→<: (ap σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃τ) = tr (box (◃→<: σ◃σ₁⇒σ₂)) (tr ap (◃→<: □σ₁⇒□σ₂◃τ))
+◃→<: (ap□ σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃τ) = tr (◃→<: σ◃σ₁⇒σ₂) (tr pure (tr ap (◃→<: □σ₁⇒□σ₂◃τ)))
+◃→<: (arr σ◃τ₁ τ₁◃τ) = arr (◃→<: σ◃τ₁) (◃→<: τ₁◃τ)
+
+◃-trans : {σ : Ty b₁} {τ : Ty b₂} {υ : Ty b₃} → σ ◃ τ → τ ◃ υ → σ ◃ υ
+◃-trans-arr-ap□ : {τ₁ : Ty b₁} {τ₂ : Ty b₂} {σ₁ : Ty b₃} {σ₂ : Ty b₄} {υ₁ υ₂ : Ty ₀} {υ : Ty b₅} → τ₁ ◃ σ₁ → σ₂ ◃ τ₂ → (τ₁ ⇒ τ₂ ◃ υ₁ ⇒ υ₂) → (□ υ₁ ⇒ □ υ₂ ◃ υ) → σ₁ ⇒ σ₂ ◃ υ
+◃-trans-pureL : {σ : Ty b₁} {τ : Ty ₀} {υ : Ty b₂} → σ ◃ τ → □ τ ◃ υ → σ ◃ υ
+
+◃-trans rfl τ◃υ = τ◃υ
+◃-trans (box σ◃τ) rfl = box σ◃τ
+◃-trans (box σ◃τ) (box τ◃υ) = box (◃-trans σ◃τ τ◃υ)
+◃-trans (box σ◃τ) (pure □τ◃υ) = pure (◃-trans (box σ◃τ) □τ◃υ)
+◃-trans (box σ◃τ) (ap □τ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃υ) = ap (◃-trans σ◃τ □τ◃σ₁⇒σ₂) □σ₁⇒□σ₂◃υ
+◃-trans (box σ◃τ) (ap□ □τ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃υ) = ap (◃-trans (pure σ◃τ) □τ◃σ₁⇒σ₂) □σ₁⇒□σ₂◃υ
+◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) rfl = arr τ₁◃σ₁ σ₂◃τ₂
+◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) (arr τ₁◃υ₁ υ₂◃τ₂) = arr (◃-trans τ₁◃υ₁ τ₁◃σ₁) (◃-trans σ₂◃τ₂ υ₂◃τ₂)
+◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) (pure τ₁⇒τ₂◃τ) = pure (◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) τ₁⇒τ₂◃τ)
+◃-trans (arr τ₁◃σ₁ σ₂◃τ₂) (ap□ τ₁⇒τ₂◃υ₁⇒υ₂ □υ₁⇒□υ₂◃υ) = ◃-trans-arr-ap□ τ₁◃σ₁ σ₂◃τ₂ τ₁⇒τ₂◃υ₁⇒υ₂ □υ₁⇒□υ₂◃υ
+◃-trans (pure σ◃τ) □τ◃υ = ◃-trans-pureL σ◃τ □τ◃υ
+◃-trans (ap σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃τ) τ◃υ = ap σ◃σ₁⇒σ₂ (◃-trans □σ₁⇒□σ₂◃τ τ◃υ)
+◃-trans (ap□ σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃τ) τ◃υ = ap□ σ◃σ₁⇒σ₂ (◃-trans □σ₁⇒□σ₂◃τ τ◃υ)
+
+-- Need a helper lemma to potentially iterate ap□ in the RHS.  This makes sense since
+-- we might need to apply pure;ap many times before getting an arrow type which we can then
+-- combine with the arr on the LHS.
+◃-trans-arr-ap□ τ₁◃σ₁ σ₂◃τ₂ rfl □υ₁⇒□υ₂◃υ = ap□ (arr τ₁◃σ₁ σ₂◃τ₂) □υ₁⇒□υ₂◃υ
+◃-trans-arr-ap□ τ₁◃σ₁ σ₂◃τ₂ (arr υ₁◃τ₁ τ₂◃υ₂) □υ₁⇒□υ₂◃υ = ap□ (arr (◃-trans υ₁◃τ₁ τ₁◃σ₁) (◃-trans σ₂◃τ₂ τ₂◃υ₂)) □υ₁⇒□υ₂◃υ
+◃-trans-arr-ap□ τ₁◃σ₁ σ₂◃τ₂ (ap□ τ₁⇒τ₂◃χ₁⇒χ₂ □χ₁⇒□χ₂◃υ₁⇒υ₂) □υ₁⇒□υ₂◃υ = ap□ (◃-trans-arr-ap□ τ₁◃σ₁ σ₂◃τ₂ τ₁⇒τ₂◃χ₁⇒χ₂ □χ₁⇒□χ₂◃υ₁⇒υ₂) □υ₁⇒□υ₂◃υ
+
+-- applying an extra pure before doing something else...
+◃-trans-pureL σ◃τ rfl = pure σ◃τ
+◃-trans-pureL σ◃τ (box τ◃υ) = pure (◃-trans σ◃τ τ◃υ)
+◃-trans-pureL σ◃τ (pure □τ◃υ) = pure (◃-trans-pureL σ◃τ □τ◃υ)
+◃-trans-pureL σ◃τ (ap τ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃υ) = ap□ (◃-trans σ◃τ τ◃σ₁⇒σ₂) □σ₁⇒□σ₂◃υ
+◃-trans-pureL σ◃τ (ap□ τ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃υ) = ap□ (◃-trans-pureL σ◃τ τ◃σ₁⇒σ₂) □σ₁⇒□σ₂◃υ
+
+-- Now we can show that if σ <: τ then σ ◃ τ.  All the cases are
+-- immediate except for transitivity, for which we use the previous
+-- lemma.
+<:→◃ : {σ : Ty b₁} {τ : Ty b₂} → σ <: τ → σ ◃ τ
+<:→◃ rfl = rfl
+<:→◃ (tr σ<:τ₁ τ₁<:τ) = ◃-trans (<:→◃ σ<:τ₁) (<:→◃ τ₁<:τ)
+<:→◃ (arr τ₁<:σ₁ σ₂<:τ₂) = arr (<:→◃ τ₁<:σ₁) (<:→◃ σ₂<:τ₂)
+<:→◃ (box σ<:τ) = box (<:→◃ σ<:τ)
+<:→◃ pure = pure rfl
+<:→◃ ap = ap rfl rfl
+
+-- pureL is admissible
+pureL : {σ : Ty ₀} {τ : Ty b} → □ σ ◃ τ → σ ◃ τ
+pureL □σ◃τ = <:→◃ (tr pure (◃→<: □σ◃τ))
+
+------------------------------------------------------------
+-- Inversion lemmas
+------------------------------------------------------------
+
+B◃□-inv : {t : B} {τ : Ty ₀} → base t ◃ □ τ → base t ◃ τ
+B◃□-inv (pure t◃□τ) = t◃□τ
+B◃□-inv (ap□ t◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = {!!}
+
+-- ¬B◃⇒ : {b : B} {τ₁ : Ty b₁} {τ₂ : Ty b₂} → ¬ (base b ◃ τ₁ ⇒ τ₂)
+
+
+-- This inversion lemma is easy, because we don't have to worry
+-- about transitivity! yippee!
+⇒◃□-inv : {σ₁ : Ty b₁} {σ₂ : Ty b₂} {τ : Ty ₀} → σ₁ ⇒ σ₂ ◃ □ τ → σ₁ ⇒ σ₂ ◃ τ
+⇒◃□-inv (pure s) = s
+⇒◃□-inv (ap□ f g) = ap□ f (⇒◃□-inv g)
+
+-- This one is more difficult... but it would probably be super
+-- impossible with transitivity in the mix.
+
+-- This says when checking subtyping it is always OK to cancel boxes
+-- from both sides.  Put another way, any proof of □ σ ◃ □ τ can be
+-- rewritten to have 'box' as its outermost constructor. Put yet
+-- another way, any term of type □ σ → □ τ can be rewritten to have
+-- 'fmap' as its outermost function call.
+□-inv : {σ τ : Ty ₀} → □ σ ◃ □ τ → σ ◃ τ
+□-inv rfl = rfl
+□-inv (box p) = p
+□-inv (pure p) = pureL p
+□-inv (ap f g) = ◃-trans (ap□ f rfl) (⇒◃□-inv g)
+□-inv (ap□ f g) = pureL (◃-trans (ap□ f rfl) (⇒◃□-inv g))
+
+------------------------------------------------------------
+-- Subtyping is decidable
+------------------------------------------------------------
+
+-- ◃-Dec : {b₁ b₂ : Boxity} → Decidable (_◃_ {b₁} {b₂})
+
+-- -- First, some impossible cases.
+-- ◃-Dec (base _) (_ ⇒ _) = no ¬B◃⇒
+-- ◃-Dec (_ ⇒ _) (base _) = no ¬⇒◃B
+-- ◃-Dec (□ _) (base _) = no ¬□◃B
