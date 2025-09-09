@@ -145,6 +145,7 @@ data _◃_ : Ty b₁ → Ty b₂ → Set where
   pure : {σ : Ty b} {τ : Ty ₀} → (σ ◃ τ) → σ ◃ □ τ
   ap : {σ σ₁ σ₂ : Ty ₀} {τ : Ty b} → (σ ◃ σ₁ ⇒ σ₂) → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (□ σ ◃ τ)
   ap□ : {σ : Ty b₁} {σ₁ σ₂ : Ty ₀} {τ : Ty b₂} → (σ ◃ σ₁ ⇒ σ₂) → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (σ ◃ τ)
+    -- ap□ : {σ σ₁ σ₂ : Ty ₀} {τ : Ty b} → (□ σ ◃ σ₁ ⇒ σ₂) → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (□ σ ◃ τ)  -- XXX should be able to use this instead??
 
 ◃→<: : {σ : Ty b₁} {τ : Ty b₂} → σ ◃ τ → σ <: τ
 ◃→<: rfl = rfl
@@ -207,6 +208,10 @@ pureL □σ◃τ = <:→◃ (tr pure (◃→<: □σ◃τ))
 
 ¬B◃⇒ : {t : B} {τ₁ : Ty b₁} {τ₂ : Ty b₂} → ¬ (base t ◃ τ₁ ⇒ τ₂)
 ¬B◃⇒ (ap□ p _) = ¬B◃⇒ p
+
+¬□B◃⇒ : {t : B} {τ₁ : Ty b₁} {τ₂ : Ty b₂} → ¬ (□ base t ◃ τ₁ ⇒ τ₂)
+¬□B◃⇒ (ap p _) = ⊥-elim (¬B◃⇒ p)
+¬□B◃⇒ (ap□ p _) = ¬□B◃⇒ p
 
 ¬⇒◃B : {τ₁ : Ty b₁} {τ₂ : Ty b₂} {t : B} → ¬ (τ₁ ⇒ τ₂ ◃ base t)
 ¬⇒◃B (ap□ _ p) = ¬⇒◃B p
@@ -284,12 +289,21 @@ B◃□-inv (ap□ t◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ⊥-elim (¬
 -- And now for the interesting cases, which of course involve
 -- function types.
 
--- The only way to get this next case is to first push the box down,
--- i.e. the outermost constructor of any proof must be ap.  However,
--- we have to figure out σ₁ and σ₂.  They must be whatever is on the
--- LHS and RHS of σ (which must have a ⇒ shape), but with possibly
--- different numbers of □ ...
-◃-Dec (□ σ) (τ₁ ⇒ τ₂) = {!!}
+-- If a box type is a subtype of a function type, the type inside the
+-- box can't be a base type...
+◃-Dec (□ base _) (_ ⇒ _) = no ¬□B◃⇒
+
+-- ...in fact, it must be a function type itself.  The only way to get
+-- this case is to first push the box down, i.e. the outermost
+-- constructor of any proof must be ap.  However, we have to figure
+-- out σ₁ and σ₂.  They must be whatever is on the LHS and RHS of σ
+-- (which must have a ⇒ shape), but with possibly different numbers of
+-- □ ...
+
+-- b₁ != ₀ of type Boxity
+-- when checking that the expression σ₁ has type Ty ₀
+◃-Dec (□ (σ₁ ⇒ σ₂)) (τ₁ ⇒ τ₂) with ◃-Dec (□ σ₁ ⇒ □ σ₂) (τ₁ ⇒ τ₂)
+... | res = ?
 
 -- We might be tempted here to just check whether τ₁ ◃ σ₁ and σ₂ ◃
 -- τ₂, and then use the 'arr' rule.  However, that would not be
