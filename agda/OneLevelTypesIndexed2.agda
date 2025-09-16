@@ -145,7 +145,6 @@ data _◃_ : Ty b₁ → Ty b₂ → Set where
   pure : {σ : Ty b} {τ : Ty ₀} → (σ ◃ τ) → σ ◃ □ τ
   ap : {σ σ₁ σ₂ : Ty ₀} {τ : Ty b} → (σ ◃ σ₁ ⇒ σ₂) → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (□ σ ◃ τ)
   ap□ : {σ : Ty b₁} {σ₁ σ₂ : Ty ₀} {τ : Ty b₂} → (σ ◃ σ₁ ⇒ σ₂) → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (σ ◃ τ)
-    -- ap□ : {σ σ₁ σ₂ : Ty ₀} {τ : Ty b} → (□ σ ◃ σ₁ ⇒ σ₂) → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (□ σ ◃ τ)  -- XXX should be able to use this instead??
 
 ◃→<: : {σ : Ty b₁} {τ : Ty b₂} → σ ◃ τ → σ <: τ
 ◃→<: rfl = rfl
@@ -258,6 +257,21 @@ B◃□-inv (ap□ t◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ⊥-elim (¬
 □-inv (ap□ f g) = pureL (◃-trans (ap□ f rfl) (⇒◃□-inv g))
 
 ------------------------------------------------------------
+-- Lemma?
+------------------------------------------------------------
+
+-- If two arrow types are in the ◃ relation, then their right-hand
+-- arguments are in the ◃ relation as well.
+⇒◃⇒ʳ : {σ₁ : Ty b₁} {σ₂ : Ty b₂} {τ₁ : Ty b₃} {τ₂ : Ty b₄} → (σ₁ ⇒ σ₂) ◃ (τ₁ ⇒ τ₂) → σ₂ ◃ τ₂
+⇒◃⇒ʳ rfl = rfl
+⇒◃⇒ʳ (arr _ pf) = pf
+⇒◃⇒ʳ {σ₂ = σ₂} (ap□ pf₁ pf₂) = ◃-trans (⇒◃⇒ʳ pf₁) (◃-trans (pure rfl) (⇒◃⇒ʳ pf₂))
+
+-- However, the same is not true (neither co- nor contravariantly) for
+-- the left-hand arguments.  For example, (A ⇒ A) ◃ (□A ⇒ □A) (via
+-- pure + app), and also (□A ⇒ A) ◃ (A ⇒ □A) (via arr).
+
+------------------------------------------------------------
 -- Subtyping is decidable
 ------------------------------------------------------------
 
@@ -295,15 +309,25 @@ B◃□-inv (ap□ t◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ⊥-elim (¬
 
 -- ...in fact, it must be a function type itself.  The only way to get
 -- this case is to first push the box down, i.e. the outermost
--- constructor of any proof must be ap.  However, we have to figure
+-- constructor of any proof must be ap.
+--
+-- However, we have to figure
 -- out σ₁ and σ₂.  They must be whatever is on the LHS and RHS of σ
 -- (which must have a ⇒ shape), but with possibly different numbers of
 -- □ ...
 
--- b₁ != ₀ of type Boxity
--- when checking that the expression σ₁ has type Ty ₀
-◃-Dec (□ (σ₁ ⇒ σ₂)) (τ₁ ⇒ τ₂) with ◃-Dec (□ σ₁ ⇒ □ σ₂) (τ₁ ⇒ τ₂)
-... | res = ?
+-- Only rules we could possibly use here are ap or ap□.
+--
+--   To use ap, we must show
+--     - (σ₁ ⇒ σ₂) ◃ x ⇒ y
+--     - □ x ⇒ □ y ◃ τ₁ ⇒ τ₂
+--   To use ap□, we must show
+--     - □ (σ₁ ⇒ σ₂) ◃ x ⇒ y
+--     - □ x ⇒ □ y ◃ τ₁ ⇒ τ₂
+--
+--   What can we say about the boxity of various things here?
+--   I want to say σ₁ must have boxity 0...
+◃-Dec (□ (σ₁ ⇒ σ₂)) (τ₁ ⇒ τ₂) = {!!}
 
 -- We might be tempted here to just check whether τ₁ ◃ σ₁ and σ₂ ◃
 -- τ₂, and then use the 'arr' rule.  However, that would not be
