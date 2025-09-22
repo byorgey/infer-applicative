@@ -2,6 +2,7 @@ open import Data.Bool
 open import Data.Empty
 open import Data.Product using (Σ-syntax ; Σ ; _×_ ; _,_ ; -,_ ; proj₁ ; proj₂ )
 open import Data.Product.Properties using (≡-dec)
+open import Data.Sum using (_⊎_; inj₁; inj₂)
 open import Function using (_∘_)
 open import Relation.Binary using (Decidable; DecidableEquality)
 open import Relation.Binary.PropositionalEquality
@@ -27,6 +28,11 @@ Boxity-≟ ₀ ₁ = no λ ()
 Boxity-≟ ₁ ₀ = no λ ()
 Boxity-≟ ₁ ₁ = yes refl
 
+-- There are only two Boxities, so if it's not ₀, it must be ₁
+¬₀→₁ : {b : Boxity} → b ≢ ₀ → b ≡ ₁
+¬₀→₁ {₀} b≢₀ = ⊥-elim (b≢₀ refl)
+¬₀→₁ {₁} b≢₀ = refl
+
 ------------------------------------------------------------
 -- Path-dependent equality
 ------------------------------------------------------------
@@ -37,9 +43,6 @@ _≡⟦_⟧_ : {A : Set} {B : A → Set} {a₀ a₁ : A}
        → B a₀ → a₀ ≡ a₁ → B a₁ → Set
 b₀ ≡⟦ refl ⟧ b₁   =   b₀ ≡ b₁
 
-undep : {A : Set} {B : A → Set} {a : A} {x y : B a} → _≡⟦_⟧_ {A} {B} x _ y → x ≡ y
-undep p = p
-
 ------------------------------------------------------------
 -- Types
 ------------------------------------------------------------
@@ -49,8 +52,11 @@ data Ty : Boxity → Set where
   base : B → Ty ₀
   _⇒_ : {b₁ b₂ : Boxity} → Ty b₁ → Ty b₂ → Ty ₀
 
-infixr 2 _⇒_
+infixr 25 _⇒_
 infix 30 □_
+
+□′ : (b ≡ ₀) → Ty b → Ty ₁
+□′ refl σ = □ σ
 
 □-inj : {τ₁ τ₂ : Ty ₀} → (□ τ₁ ≡ □ τ₂) → (τ₁ ≡ τ₂)
 □-inj refl = refl
@@ -60,6 +66,14 @@ base-inj refl = refl
 
 ⇒-inj : {σ₁ : Ty b₁} {σ₂ : Ty b₂} {τ₁ : Ty b₁} {τ₂ : Ty b₂} → (σ₁ ⇒ σ₂) ≡ (τ₁ ⇒ τ₂) → (σ₁ ≡ τ₁) × (σ₂ ≡ τ₂)
 ⇒-inj refl = refl , refl
+
+decompose-□ : (σ : Ty ₁) → Σ[ σ′ ∈ Ty ₀ ] (σ ≡ □ σ′)
+decompose-□ (□ σ) = σ , refl
+
+case-□ : (σ : Ty b) → (b ≡ ₀) ⊎ (b ≡ ₁)
+case-□ (□ _) = inj₂ refl
+case-□ (base _) = inj₁ refl
+case-□ (_ ⇒ _) = inj₁ refl
 
 ------------------------------------------------------------
 -- Type equality is decidable
@@ -119,7 +133,7 @@ data _<:_ : Ty b₁ → Ty b₂ → Set where
   pure : ∀ {τ} → τ <: □ τ
   ap : ∀ {σ τ} → □ (σ ⇒ τ) <: (□ σ ⇒ □ τ)
 
-infix 1 _<:_
+infix 20 _<:_
 
 --------------------------------------------------
 -- Subtypes have the same shape
@@ -136,7 +150,7 @@ infix 1 _<:_
 -- Transitivity-free subtyping
 ------------------------------------------------------------
 
-infix 1 _◃_
+infix 20 _◃_
 
 data _◃_ : Ty b₁ → Ty b₂ → Set where
   rfl : {τ : Ty b} → τ ◃ τ
@@ -256,20 +270,40 @@ B◃□-inv (ap□ t◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ⊥-elim (¬
 □-inv (ap f g) = ◃-trans (ap□ f rfl) (⇒◃□-inv g)
 □-inv (ap□ f g) = pureL (◃-trans (ap□ f rfl) (⇒◃□-inv g))
 
+-- If a type with no outermost box is a subtype of a type with an
+-- outermost box, we can remove the box.
+unbox : {σ τ : Ty ₀} → σ ◃ □ τ → σ ◃ τ
+unbox (pure σ◃τ) = σ◃τ
+unbox (ap□ σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ap□ σ◃σ₁⇒σ₂ (unbox □σ₁⇒□σ₂◃□τ)
+
 ------------------------------------------------------------
--- Lemma?
+-- Inversion lemmas for arrow types
 ------------------------------------------------------------
 
 -- If two arrow types are in the ◃ relation, then their right-hand
 -- arguments are in the ◃ relation as well.
-⇒◃⇒ʳ : {σ₁ : Ty b₁} {σ₂ : Ty b₂} {τ₁ : Ty b₃} {τ₂ : Ty b₄} → (σ₁ ⇒ σ₂) ◃ (τ₁ ⇒ τ₂) → σ₂ ◃ τ₂
-⇒◃⇒ʳ rfl = rfl
-⇒◃⇒ʳ (arr _ pf) = pf
-⇒◃⇒ʳ {σ₂ = σ₂} (ap□ pf₁ pf₂) = ◃-trans (⇒◃⇒ʳ pf₁) (◃-trans (pure rfl) (⇒◃⇒ʳ pf₂))
+⇒-invʳ : {σ₁ : Ty b₁} {σ₂ : Ty b₂} {τ₁ : Ty b₃} {τ₂ : Ty b₄} → (σ₁ ⇒ σ₂) ◃ (τ₁ ⇒ τ₂) → σ₂ ◃ τ₂
+⇒-invʳ rfl = rfl
+⇒-invʳ (arr _ pf) = pf
+⇒-invʳ {σ₂ = σ₂} (ap□ pf₁ pf₂) = ◃-trans (⇒-invʳ pf₁) (◃-trans (pure rfl) (⇒-invʳ pf₂))
 
--- However, the same is not true (neither co- nor contravariantly) for
+-- The same is not true (neither co- nor contravariantly) for
 -- the left-hand arguments.  For example, (A ⇒ A) ◃ (□A ⇒ □A) (via
 -- pure + app), and also (□A ⇒ A) ◃ (A ⇒ □A) (via arr).
+--
+-- However, we can at least say that they are contravariantly related
+-- with either zero or one boxes applied.
+--
+-- XXX CAN WE ADAPT THIS TO THE GENERAL CASE by proving a similar
+-- lemma, but instead of a sum type we have something like ∃n. τ₁ ◃ □^n σ₁ ?
+⇒-invˡ : {σ₁ : Ty b₁} {σ₂ : Ty b₂} {τ₁ : Ty b₃} {τ₂ : Ty b₄} → (σ₁ ⇒ σ₂) ◃ (τ₁ ⇒ τ₂) → (τ₁ ◃ σ₁ ⊎ (Σ (b₁ ≡ ₀) (λ p → τ₁ ◃ □′ p σ₁)))
+⇒-invˡ rfl = inj₁ rfl
+⇒-invˡ (arr τ₁◃σ₁ _) = inj₁ τ₁◃σ₁
+⇒-invˡ {b₁ = ₁} {σ₁ = □ σ₁} (ap□ σ₁⇒σ₂◃σ₃⇒σ₄ □σ₃⇒□σ₄◃τ₁⇒τ₂) with ⇒-invˡ □σ₃⇒□σ₄◃τ₁⇒τ₂ | ⇒-invˡ σ₁⇒σ₂◃σ₃⇒σ₄
+... | inj₁ τ₁◃□σ₃ | inj₁ σ₃◃σ₁ = inj₁ (◃-trans τ₁◃□σ₃ (box (unbox σ₃◃σ₁)))
+⇒-invˡ {b₁ = ₀} (ap□ σ₁⇒σ₂◃σ₃⇒σ₄ □σ₃⇒□σ₄◃τ₁⇒τ₂) with ⇒-invˡ □σ₃⇒□σ₄◃τ₁⇒τ₂ | ⇒-invˡ σ₁⇒σ₂◃σ₃⇒σ₄
+... | inj₁ τ₁◃□σ₃ | inj₁ σ₃◃σ₁ = inj₂ (refl , ◃-trans τ₁◃□σ₃ (box σ₃◃σ₁))
+... | inj₁ τ₁◃□σ₃ | inj₂ (refl , σ₃◃□σ₁) = inj₂ (refl , ◃-trans τ₁◃□σ₃ (box (unbox σ₃◃□σ₁)))
 
 ------------------------------------------------------------
 -- Subtyping is decidable
@@ -327,6 +361,9 @@ B◃□-inv (ap□ t◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ⊥-elim (¬
 --
 --   What can we say about the boxity of various things here?
 --   I want to say σ₁ must have boxity 0...
+--
+--   Note we must have  □ σ₂ ◃ τ₂ ?
+--
 ◃-Dec (□ (σ₁ ⇒ σ₂)) (τ₁ ⇒ τ₂) = {!!}
 
 -- We might be tempted here to just check whether τ₁ ◃ σ₁ and σ₂ ◃
@@ -334,4 +371,13 @@ B◃□-inv (ap□ t◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ⊥-elim (¬
 -- correct; we might have to do some ap□ first (but we have to guess
 -- how many...)  For example, (A → B) ◃ (□A → □B) (via pure + ap),
 -- but □A ◃ A does not hold.
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) = {!!}
+--
+--   XXX can now make use of ⇒-invˡ ?  Decide whether τ₁ ◃ σ₁ or τ₁ ◃ □ σ₁ .
+--   If neither of those holds, then ⇒-invˡ tells us it's not possible.
+
+◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) with case-□ σ₁
+◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl with ◃-Dec τ₁ σ₁ | ◃-Dec τ₁ (□ σ₁) | ◃-Dec σ₂ τ₂
+◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | yes τ₁◃σ₁ | _ | yes σ₂◃τ₂ = yes (arr τ₁◃σ₁ {!!})
+◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | no ¬a | res2 | res3 = {!!}
+◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl = {!!} 
+
