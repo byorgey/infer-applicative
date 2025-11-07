@@ -107,7 +107,13 @@ Ty-≟ {b} σ τ with Ty-≟′ σ τ
 ... | no σ≢τ = no (λ σ≡τ → σ≢τ ( refl , σ≡τ))
 ... | yes (refl , σ≡τ) = yes σ≡τ
 
-ΣTy-≟ : DecidableEquality (Σ Boxity Ty)
+ΣTy : Set
+ΣTy = Σ Boxity Ty
+
+%_ : Ty b → ΣTy
+% τ = _ , τ
+
+ΣTy-≟ : DecidableEquality ΣTy
 ΣTy-≟ (b₁ , σ) (b₂ , τ) with Ty-≟′ σ τ
 ... | no σ≢τ = no λ { refl → σ≢τ (refl , refl) }
 ... | yes (refl , refl) = yes refl
@@ -296,14 +302,27 @@ unbox (ap□ σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ap□ σ◃σ₁�
 --
 -- XXX CAN WE ADAPT THIS TO THE GENERAL CASE by proving a similar
 -- lemma, but instead of a sum type we have something like ∃n. τ₁ ◃ □^n σ₁ ?
-⇒-invˡ : {σ₁ : Ty b₁} {σ₂ : Ty b₂} {τ₁ : Ty b₃} {τ₂ : Ty b₄} → (σ₁ ⇒ σ₂) ◃ (τ₁ ⇒ τ₂) → (τ₁ ◃ σ₁ ⊎ (Σ (b₁ ≡ ₀) (λ p → τ₁ ◃ □′ p σ₁)))
+-- ⇒-invˡ : {σ₁ : Ty b₁} {σ₂ : Ty b₂} {τ₁ : Ty b₃} {τ₂ : Ty b₄} → (σ₁ ⇒ σ₂) ◃ (τ₁ ⇒ τ₂) → (τ₁ ◃ σ₁ ⊎ (Σ (b₁ ≡ ₀) (λ p → τ₁ ◃ □′ p σ₁)))
+-- ⇒-invˡ rfl = inj₁ rfl
+-- ⇒-invˡ (arr τ₁◃σ₁ _) = inj₁ τ₁◃σ₁
+-- ⇒-invˡ {b₁ = ₁} {σ₁ = □ σ₁} (ap□ σ₁⇒σ₂◃σ₃⇒σ₄ □σ₃⇒□σ₄◃τ₁⇒τ₂) with ⇒-invˡ □σ₃⇒□σ₄◃τ₁⇒τ₂ | ⇒-invˡ σ₁⇒σ₂◃σ₃⇒σ₄
+-- ... | inj₁ τ₁◃□σ₃ | inj₁ σ₃◃σ₁ = inj₁ (◃-trans τ₁◃□σ₃ (box (unbox σ₃◃σ₁)))
+-- ⇒-invˡ {b₁ = ₀} (ap□ σ₁⇒σ₂◃σ₃⇒σ₄ □σ₃⇒□σ₄◃τ₁⇒τ₂) with ⇒-invˡ □σ₃⇒□σ₄◃τ₁⇒τ₂ | ⇒-invˡ σ₁⇒σ₂◃σ₃⇒σ₄
+-- ... | inj₁ τ₁◃□σ₃ | inj₁ σ₃◃σ₁ = inj₂ (refl , ◃-trans τ₁◃□σ₃ (box σ₃◃σ₁))
+-- ... | inj₁ τ₁◃□σ₃ | inj₂ (refl , σ₃◃□σ₁) = inj₂ (refl , ◃-trans τ₁◃□σ₃ (box (unbox σ₃◃□σ₁)))
+
+⇒-invˡ : {σ₁ : Ty b₁} {σ₂ : Ty b₂} {τ₁ : Ty b₃} {τ₂ : Ty b₄} → (σ₁ ⇒ σ₂) ◃ (τ₁ ⇒ τ₂) → (τ₁ ◃ σ₁) ⊎ Σ[ p ∈ b₁ ≡ ₀ ] (τ₁ ◃ □′ p σ₁) × Σ[ q ∈ b₂ ≡ ₀ ] (□′ q σ₂ ◃ τ₂)
 ⇒-invˡ rfl = inj₁ rfl
 ⇒-invˡ (arr τ₁◃σ₁ _) = inj₁ τ₁◃σ₁
-⇒-invˡ {b₁ = ₁} {σ₁ = □ σ₁} (ap□ σ₁⇒σ₂◃σ₃⇒σ₄ □σ₃⇒□σ₄◃τ₁⇒τ₂) with ⇒-invˡ □σ₃⇒□σ₄◃τ₁⇒τ₂ | ⇒-invˡ σ₁⇒σ₂◃σ₃⇒σ₄
-... | inj₁ τ₁◃□σ₃ | inj₁ σ₃◃σ₁ = inj₁ (◃-trans τ₁◃□σ₃ (box (unbox σ₃◃σ₁)))
-⇒-invˡ {b₁ = ₀} (ap□ σ₁⇒σ₂◃σ₃⇒σ₄ □σ₃⇒□σ₄◃τ₁⇒τ₂) with ⇒-invˡ □σ₃⇒□σ₄◃τ₁⇒τ₂ | ⇒-invˡ σ₁⇒σ₂◃σ₃⇒σ₄
-... | inj₁ τ₁◃□σ₃ | inj₁ σ₃◃σ₁ = inj₂ (refl , ◃-trans τ₁◃□σ₃ (box σ₃◃σ₁))
-... | inj₁ τ₁◃□σ₃ | inj₂ (refl , σ₃◃□σ₁) = inj₂ (refl , ◃-trans τ₁◃□σ₃ (box (unbox σ₃◃□σ₁)))
+⇒-invˡ (ap□ σ₁⇒σ₂◃σ₃⇒σ₄ □σ₃⇒□σ₄◃τ₁⇒τ₂) = {!!}
+
+-- ⇒-invˡ rfl = inj₁ rfl
+-- ⇒-invˡ (arr τ₁◃σ₁ _) = inj₁ τ₁◃σ₁
+-- ⇒-invˡ {b₁ = ₁} {σ₁ = □ σ₁} (ap□ σ₁⇒σ₂◃σ₃⇒σ₄ □σ₃⇒□σ₄◃τ₁⇒τ₂) with ⇒-invˡ □σ₃⇒□σ₄◃τ₁⇒τ₂ | ⇒-invˡ σ₁⇒σ₂◃σ₃⇒σ₄
+-- ... | inj₁ τ₁◃□σ₃ | inj₁ σ₃◃σ₁ = inj₁ (◃-trans τ₁◃□σ₃ (box (unbox σ₃◃σ₁)))
+-- ⇒-invˡ {b₁ = ₀} (ap□ σ₁⇒σ₂◃σ₃⇒σ₄ □σ₃⇒□σ₄◃τ₁⇒τ₂) with ⇒-invˡ □σ₃⇒□σ₄◃τ₁⇒τ₂ | ⇒-invˡ σ₁⇒σ₂◃σ₃⇒σ₄
+-- ... | inj₁ τ₁◃□σ₃ | inj₁ σ₃◃σ₁ = inj₂ (refl , ◃-trans τ₁◃□σ₃ (box σ₃◃σ₁))
+-- ... | inj₁ τ₁◃□σ₃ | inj₂ (refl , σ₃◃□σ₁) = inj₂ (refl , ◃-trans τ₁◃□σ₃ (box (unbox σ₃◃□σ₁)))
 
 ------------------------------------------------------------
 -- Lemma: ¬A × ¬B → ¬ (A ⊎ B
@@ -351,12 +370,11 @@ lem₁ (¬P , ¬Q) (inj₂ Q) = ¬Q Q
 
 -- ...in fact, it must be a function type itself.  The only way to get
 -- this case is to first push the box down, i.e. the outermost
--- constructor of any proof must be ap.
+-- constructor of any proof must be ap or ap□.
 --
--- However, we have to figure
--- out σ₁ and σ₂.  They must be whatever is on the LHS and RHS of σ
--- (which must have a ⇒ shape), but with possibly different numbers of
--- □ ...
+-- However, we have to figure out σ₁ and σ₂.  They must be related to
+-- whatever is on the LHS and RHS of σ (which must have a ⇒ shape),
+-- but potentially with boxes pushed around.
 
 -- Only rules we could possibly use here are ap or ap□.
 --
@@ -374,19 +392,99 @@ lem₁ (¬P , ¬Q) (inj₂ Q) = ¬Q Q
 --
 ◃-Dec (□ (σ₁ ⇒ σ₂)) (τ₁ ⇒ τ₂) = {!!}
 
--- We might be tempted here to just check whether τ₁ ◃ σ₁ and σ₂ ◃
--- τ₂, and then use the 'arr' rule.  However, that would not be
--- correct; we might have to do some ap□ first (but we have to guess
--- how many...)  For example, (A → B) ◃ (□A → □B) (via pure + ap),
--- but □A ◃ A does not hold.
+-- Finally, the case for two function types.  We might be tempted here
+-- to just check whether τ₁ ◃ σ₁ and σ₂ ◃ τ₂, and then use the 'arr'
+-- rule.  However, that would not be complete; we might have to do an
+-- ap□ first.  For example, (A → B) ◃ (□A → □B) (via pure + ap), but
+-- □A ◃ A does not hold.
 
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) with case-□ σ₁
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl with ◃-Dec σ₂ τ₂ | ◃-Dec τ₁ σ₁ | ◃-Dec τ₁ (□ σ₁)
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | no ¬σ₂◃τ₂ | _ | _ = no (contraposition ⇒-invʳ ¬σ₂◃τ₂)
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | yes σ₂◃τ₂ | yes τ₁◃σ₁ | _ = yes (arr τ₁◃σ₁ σ₂◃τ₂)
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | yes σ₂◃τ₂ | no ¬τ₁◃σ₁ | yes τ₁◃□σ₁ = yes {!!}
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | yes σ₂◃τ₂ | no ¬τ₁◃σ₁ | no ¬τ₁◃□σ₁ = no (contraposition ⇒-invˡ (lem₁ (¬τ₁◃σ₁ , (λ { (refl , τ₁◃□σ₁) → ¬τ₁◃□σ₁ τ₁◃□σ₁}))))
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl with ◃-Dec σ₂ τ₂ | ◃-Dec τ₁ σ₁
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl | no ¬σ₂◃τ₂ | _ = no (contraposition ⇒-invʳ ¬σ₂◃τ₂)
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl | yes σ₂◃τ₂ | yes τ₁◃σ₁ = yes (arr τ₁◃σ₁ σ₂◃τ₂)
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl | yes σ₂◃τ₂ | no ¬τ₁◃σ₁ = no (contraposition ⇒-invˡ (lem₁ (¬τ₁◃σ₁ , λ {()})))
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) with case-□ σ₁
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl with ◃-Dec σ₂ τ₂ | ◃-Dec τ₁ σ₁ | ◃-Dec τ₁ (□ σ₁)
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | no ¬σ₂◃τ₂ | _ | _ = no (contraposition ⇒-invʳ ¬σ₂◃τ₂)
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | yes σ₂◃τ₂ | yes τ₁◃σ₁ | _ = yes (arr τ₁◃σ₁ σ₂◃τ₂)
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | yes σ₂◃τ₂ | no ¬τ₁◃σ₁ | yes τ₁◃□σ₁ = yes {!!}
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | yes σ₂◃τ₂ | no ¬τ₁◃σ₁ | no ¬τ₁◃□σ₁ = no (contraposition ⇒-invˡ (lem₁ (¬τ₁◃σ₁ , (λ { (refl , τ₁◃□σ₁) → ¬τ₁◃□σ₁ τ₁◃□σ₁}))))
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl with ◃-Dec σ₂ τ₂ | ◃-Dec τ₁ σ₁
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl | no ¬σ₂◃τ₂ | _ = no (contraposition ⇒-invʳ ¬σ₂◃τ₂)
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl | yes σ₂◃τ₂ | yes τ₁◃σ₁ = yes (arr τ₁◃σ₁ σ₂◃τ₂)
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl | yes σ₂◃τ₂ | no ¬τ₁◃σ₁ = no (contraposition ⇒-invˡ (lem₁ (¬τ₁◃σ₁ , λ {()})))
+
+------------------------------------------------------------
+-- Typing + coercion elaboration
+------------------------------------------------------------
+
+data Ctx : Set where
+  ∅ : Ctx
+  _,_ : Ctx → ΣTy → Ctx
+
+infixr 4 _,_
+
+variable
+  Γ : Ctx
+
+-- Approach to variables + weakening taken from
+-- Keller + Alternkirch, "Normalization by hereditary substitutions"
+-- https://www.cs.nott.ac.uk/~psztxa/publ/msfp10.pdf
+data Var : Ctx → ΣTy → Set₁ where
+  vz : {τ : ΣTy} → Var (Γ , τ) τ
+  vs : {σ τ : ΣTy} → Var Γ τ → Var (Γ , σ) τ
+
+_-_ : {σ : ΣTy} → (Γ : Ctx) → Var Γ σ → Ctx
+∅ - ()
+(Γ , _) - vz = Γ
+(Γ , x) - vs v = (Γ - v) , x
+
+wkv : {σ τ : ΣTy}  → (x : Var Γ σ) → Var (Γ - x) τ → Var Γ τ
+wkv vz y = vs y
+wkv (vs x) vz = vz
+wkv (vs x) (vs y) = vs (wkv x y)
+
+module TypingJudgment where
+
+  -- Type-indexed terms, with applicative subtyping
+  data Term : Ctx → Ty b → Set₁ where
+    sub : {σ : Ty b₁} {τ : Ty b₂} → σ <: τ → Term Γ σ → Term Γ τ
+    var : {τ : Ty b} → Var Γ (% τ) → Term Γ τ
+    ƛ : {σ : Ty b₁} {τ : Ty b₂} → Term (Γ , % σ) τ → Term Γ (σ ⇒ τ)
+    _∙_ : {σ : Ty b₁} {τ : Ty b₂} → Term Γ (σ ⇒ τ) → Term Γ σ → Term Γ τ
+
+  -- Type-indexed terms extended with extra `pure` and `ap` constants
+  data Term□ : Ctx → Ty b → Set₁ where
+    var : {τ : Ty b} → Var Γ (% τ) → Term□ Γ τ
+--     ƛ : Term□ (Γ , σ) τ → Term□ Γ (σ ⇒ τ)
+--     _∙_ : Term□ Γ (σ ⇒ τ) → Term□ Γ σ → Term□ Γ τ
+--     con : (c : C) → Term□ Γ (Cty c)
+--     pure : Term□ Γ (τ ⇒ □ τ)
+--     ap : Term□ Γ (□ (σ ⇒ τ) ⇒ (□ σ ⇒ □ τ))
+
+--   -- Weakening for terms.  Needed for arr case of coercion insertion.
+--   wk : (x : Var Γ σ) → Term□ (Γ - x) τ → Term□ Γ τ
+--   wk x (var y) = var (wkv x y)
+--   wk x (ƛ t) = ƛ (wk (vs x) t)
+--   wk x (t₁ ∙ t₂) = wk x t₁ ∙ wk x t₂
+--   wk _ (con c) = con c
+--   wk _ pure = pure
+--   wk _ ap = ap
+
+--   -- Coercion insertion
+--   -- Should definitely present these rules in the paper!
+
+--   infixr 5 _≪_
+
+--   _≪_ : σ <: τ → Term□ Γ σ → Term□ Γ τ
+--   rfl ≪ t = t
+--   tr σ<:τ τ<:υ ≪ t = τ<:υ ≪ σ<:τ ≪ t
+--   -- η-expand at function types to apply the coercions --- could optimize this part
+--   -- of course, especially if t is syntactically a lambda already
+--   arr τ₁<:σ₁ σ₂<:τ₂ ≪ t = ƛ (σ₂<:τ₂ ≪ (wk vz t ∙ (τ₁<:σ₁ ≪ var vz)))
+--   -- -- essentially 'fmap coerce'
+--   box σ<:τ ≪ t = (ap ∙ (pure ∙ ƛ (σ<:τ ≪ var vz))) ∙ t
+--   pure ≪ t = pure ∙ t
+--   ap ≪ t = ap ∙ t
+
+--   elaborate : Term Γ τ → Term□ Γ τ
+--   elaborate (sub σ<:τ t) = σ<:τ ≪ elaborate t
+--   elaborate (var i) = var i
+--   elaborate (ƛ _ s) = ƛ (elaborate s)
+--   elaborate (t₁ ∙ t₂) = elaborate t₁ ∙ elaborate t₂
+--   elaborate (con c) = con c
