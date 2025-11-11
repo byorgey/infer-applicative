@@ -1,4 +1,8 @@
+-- NEXT: upgrade stdlib!
+
 open import Data.Bool
+open import Data.Nat
+open import Data.Fin
 open import Data.Empty
 open import Data.Product using (Σ-syntax ; Σ ; _×_ ; _,_ ; -,_ ; proj₁ ; proj₂ )
 open import Data.Product.Properties using (≡-dec)
@@ -441,6 +445,11 @@ wkv (vs x) (vs y) = vs (wkv x y)
 
 module TypingJudgment where
 
+  data Raw (n : ℕ) : Set where
+    var : Fin n → Raw n
+    ƛ : Term (1 + n) → Term n
+    _∙_ : Term n → Term n → Term n
+
   -- Type-indexed terms, with applicative subtyping
   data Term : Ctx → Ty b → Set₁ where
     sub : {σ : Ty b₁} {τ : Ty b₂} → σ <: τ → Term Γ σ → Term Γ τ
@@ -451,40 +460,52 @@ module TypingJudgment where
   -- Type-indexed terms extended with extra `pure` and `ap` constants
   data Term□ : Ctx → Ty b → Set₁ where
     var : {τ : Ty b} → Var Γ (% τ) → Term□ Γ τ
---     ƛ : Term□ (Γ , σ) τ → Term□ Γ (σ ⇒ τ)
---     _∙_ : Term□ Γ (σ ⇒ τ) → Term□ Γ σ → Term□ Γ τ
---     con : (c : C) → Term□ Γ (Cty c)
---     pure : Term□ Γ (τ ⇒ □ τ)
---     ap : Term□ Γ (□ (σ ⇒ τ) ⇒ (□ σ ⇒ □ τ))
+    ƛ : {σ : Ty b₁} {τ : Ty b₂} → Term□ (Γ , % σ) τ → Term□ Γ (σ ⇒ τ)
+    _∙_ : {σ : Ty b₁} {τ : Ty b₂} → Term□ Γ (σ ⇒ τ) → Term□ Γ σ → Term□ Γ τ
+    pure : {τ : Ty ₀} → Term□ Γ (τ ⇒ □ τ)
+    ap : {σ τ : Ty ₀} → Term□ Γ (□ (σ ⇒ τ) ⇒ (□ σ ⇒ □ τ))
 
---   -- Weakening for terms.  Needed for arr case of coercion insertion.
---   wk : (x : Var Γ σ) → Term□ (Γ - x) τ → Term□ Γ τ
---   wk x (var y) = var (wkv x y)
---   wk x (ƛ t) = ƛ (wk (vs x) t)
---   wk x (t₁ ∙ t₂) = wk x t₁ ∙ wk x t₂
---   wk _ (con c) = con c
---   wk _ pure = pure
---   wk _ ap = ap
+    -- con : (c : C) → Term□ Γ (Cty c)
 
---   -- Coercion insertion
---   -- Should definitely present these rules in the paper!
 
---   infixr 5 _≪_
+  -- Weakening for terms.  Needed for arr case of coercion insertion.
+  wk : {σ : ΣTy} {τ : Ty b} → (x : Var Γ σ) → Term□ (Γ - x) τ → Term□ Γ τ
+  wk x (var y) = var (wkv x y)
+  wk x (ƛ t) = ƛ (wk (vs x) t)
+  wk x (t₁ ∙ t₂) = wk x t₁ ∙ wk x t₂
+  -- wk _ (con c) = con c
+  wk _ pure = pure
+  wk _ ap = ap
 
---   _≪_ : σ <: τ → Term□ Γ σ → Term□ Γ τ
---   rfl ≪ t = t
---   tr σ<:τ τ<:υ ≪ t = τ<:υ ≪ σ<:τ ≪ t
---   -- η-expand at function types to apply the coercions --- could optimize this part
---   -- of course, especially if t is syntactically a lambda already
---   arr τ₁<:σ₁ σ₂<:τ₂ ≪ t = ƛ (σ₂<:τ₂ ≪ (wk vz t ∙ (τ₁<:σ₁ ≪ var vz)))
---   -- -- essentially 'fmap coerce'
---   box σ<:τ ≪ t = (ap ∙ (pure ∙ ƛ (σ<:τ ≪ var vz))) ∙ t
---   pure ≪ t = pure ∙ t
---   ap ≪ t = ap ∙ t
+  -- Coercion insertion
+  -- Should definitely present these rules in the paper!
 
---   elaborate : Term Γ τ → Term□ Γ τ
---   elaborate (sub σ<:τ t) = σ<:τ ≪ elaborate t
---   elaborate (var i) = var i
---   elaborate (ƛ _ s) = ƛ (elaborate s)
---   elaborate (t₁ ∙ t₂) = elaborate t₁ ∙ elaborate t₂
---   elaborate (con c) = con c
+  infixr 5 _≪_
+
+  _≪_ : {σ : Ty b₁} {τ : Ty b₂} → σ <: τ → Term□ Γ σ → Term□ Γ τ
+  rfl ≪ t = t
+  tr σ<:τ τ<:υ ≪ t = τ<:υ ≪ σ<:τ ≪ t
+  -- η-expand at function types to apply the coercions --- could optimize this part
+  -- of course, especially if t is syntactically a lambda already
+  arr τ₁<:σ₁ σ₂<:τ₂ ≪ t = ƛ (σ₂<:τ₂ ≪ (wk vz t ∙ (τ₁<:σ₁ ≪ var vz)))
+  -- -- essentially 'fmap coerce'
+  box σ<:τ ≪ t = (ap ∙ (pure ∙ ƛ (σ<:τ ≪ var vz))) ∙ t
+  pure ≪ t = pure ∙ t
+  ap ≪ t = ap ∙ t
+
+  elaborate : {τ : Ty b} → Term Γ τ → Term□ Γ τ
+  elaborate (sub σ<:τ t) = σ<:τ ≪ elaborate t
+  elaborate (var i) = var i
+  elaborate (ƛ s) = ƛ (elaborate s)
+  elaborate (t₁ ∙ t₂) = elaborate t₁ ∙ elaborate t₂
+  -- elaborate (con c) = con c
+
+-- See 'ApplicativeLaws.agda' for old attempt at proving nonambiguity
+-- up to Applicative laws etc.  It set out to prove that if we have a
+-- term t of type σ, and two different subtyping proofs σ <: τ, then
+-- the two different elaborations of t to type τ are equivalent (up to
+-- the Applicative laws).  But now I am wondering whether this would
+-- even be sufficient.  Don't we also want something like: if t is
+-- some raw term and τ is a type, then all valid derivations of t : τ
+-- elaborate to equivalent terms.  How to even state this?  Need to
+-- index derivations by the raw term as well?
