@@ -1,8 +1,6 @@
--- NEXT: upgrade stdlib!
-
 open import Data.Bool
 open import Data.Nat
-open import Data.Fin
+open import Data.Fin using (Fin)
 open import Data.Empty
 open import Data.Product using (Σ-syntax ; Σ ; _×_ ; _,_ ; -,_ ; proj₁ ; proj₂ )
 open import Data.Product.Properties using (≡-dec)
@@ -426,6 +424,10 @@ infixr 4 _,_
 variable
   Γ : Ctx
 
+size : Ctx → ℕ
+size ∅ = 0
+size (c , _) = suc (size c)
+
 -- Approach to variables + weakening taken from
 -- Keller + Alternkirch, "Normalization by hereditary substitutions"
 -- https://www.cs.nott.ac.uk/~psztxa/publ/msfp10.pdf
@@ -447,8 +449,8 @@ module TypingJudgment where
 
   data Raw (n : ℕ) : Set where
     var : Fin n → Raw n
-    ƛ : Term (1 + n) → Term n
-    _∙_ : Term n → Term n → Term n
+    ƛ : Raw (1 + n) → Raw n
+    _∙_ : Raw n → Raw n → Raw n
 
   -- Type-indexed terms, with applicative subtyping
   data Term : Ctx → Ty b → Set₁ where
@@ -456,6 +458,19 @@ module TypingJudgment where
     var : {τ : Ty b} → Var Γ (% τ) → Term Γ τ
     ƛ : {σ : Ty b₁} {τ : Ty b₂} → Term (Γ , % σ) τ → Term Γ (σ ⇒ τ)
     _∙_ : {σ : Ty b₁} {τ : Ty b₂} → Term Γ (σ ⇒ τ) → Term Γ σ → Term Γ τ
+
+  -- NEXT: instead of functions rawVar/raw below, INDEX Term by a
+  -- suitable Raw value?
+
+  rawVar : {τ : ΣTy} → Var Γ τ → Fin (size Γ)
+  rawVar vz = Fin.zero
+  rawVar (vs x) = Fin.suc (rawVar x)
+
+  raw : {τ : Ty b} → Term Γ τ → Raw (size Γ)
+  raw (sub x t) = raw t
+  raw (var x) = var (rawVar x)
+  raw (ƛ t) = ƛ (raw t)
+  raw (t₁ ∙ t₂) = raw t₁ ∙ raw t₂
 
   -- Type-indexed terms extended with extra `pure` and `ap` constants
   data Term□ : Ctx → Ty b → Set₁ where
@@ -466,7 +481,6 @@ module TypingJudgment where
     ap : {σ τ : Ty ₀} → Term□ Γ (□ (σ ⇒ τ) ⇒ (□ σ ⇒ □ τ))
 
     -- con : (c : C) → Term□ Γ (Cty c)
-
 
   -- Weakening for terms.  Needed for arr case of coercion insertion.
   wk : {σ : ΣTy} {τ : Ty b} → (x : Var Γ σ) → Term□ (Γ - x) τ → Term□ Γ τ
