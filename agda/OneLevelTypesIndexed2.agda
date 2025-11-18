@@ -452,31 +452,34 @@ module TypingJudgment where
     ƛ : Raw (1 + n) → Raw n
     _∙_ : Raw n → Raw n → Raw n
 
-  -- Type-indexed terms, with applicative subtyping
-  data Term : Ctx → Ty b → Set₁ where
-    sub : {σ : Ty b₁} {τ : Ty b₂} → σ <: τ → Term Γ σ → Term Γ τ
-    var : {τ : Ty b} → Var Γ (% τ) → Term Γ τ
-    ƛ : {σ : Ty b₁} {τ : Ty b₂} → Term (Γ , % σ) τ → Term Γ (σ ⇒ τ)
-    _∙_ : {σ : Ty b₁} {τ : Ty b₂} → Term Γ (σ ⇒ τ) → Term Γ σ → Term Γ τ
-
-  -- NEXT: instead of functions rawVar/raw below, INDEX Term by a
-  -- suitable Raw value?
-
   rawVar : {τ : ΣTy} → Var Γ τ → Fin (size Γ)
   rawVar vz = Fin.zero
   rawVar (vs x) = Fin.suc (rawVar x)
 
-  raw : {τ : Ty b} → Term Γ τ → Raw (size Γ)
+  -- Type-indexed terms, with applicative subtyping
+  data Term : (Γ : Ctx) → Raw (size Γ) → Ty b → Set₁ where
+    sub : {r : Raw (size Γ)} {σ : Ty b₁} {τ : Ty b₂} → σ <: τ → Term Γ r σ → Term Γ r τ
+    var : {τ : Ty b} → (x : Var Γ (% τ)) → Term Γ (var (rawVar x)) τ
+    ƛ : {r : Raw (1 + size Γ)} {σ : Ty b₁} {τ : Ty b₂} → Term (Γ , % σ) r τ → Term Γ (ƛ r) (σ ⇒ τ)
+    _∙_ : {r₁ r₂ : Raw (size Γ)} {σ : Ty b₁} {τ : Ty b₂} → Term Γ r₁ (σ ⇒ τ) → Term Γ r₂ σ → Term Γ (r₁ ∙ r₂) τ
+
+  raw : {r : Raw (size Γ)} {τ : Ty b} → Term Γ r τ → Raw (size Γ)
   raw (sub x t) = raw t
   raw (var x) = var (rawVar x)
   raw (ƛ t) = ƛ (raw t)
   raw (t₁ ∙ t₂) = raw t₁ ∙ raw t₂
 
+  raw≡ : {r : Raw (size Γ)} {τ : Ty b} → (t : Term Γ r τ) → raw t ≡ r
+  raw≡ (sub x t) = raw≡ t
+  raw≡ (var x) = refl
+  raw≡ (ƛ t) = cong ƛ (raw≡ t)
+  raw≡ (t₁ ∙ t₂) = cong₂ _∙_ (raw≡ t₁) (raw≡ t₂)
+
   -- Type-indexed terms extended with extra `pure` and `ap` constants
-  data Term□ : Ctx → Ty b → Set₁ where
-    var : {τ : Ty b} → Var Γ (% τ) → Term□ Γ τ
-    ƛ : {σ : Ty b₁} {τ : Ty b₂} → Term□ (Γ , % σ) τ → Term□ Γ (σ ⇒ τ)
-    _∙_ : {σ : Ty b₁} {τ : Ty b₂} → Term□ Γ (σ ⇒ τ) → Term□ Γ σ → Term□ Γ τ
+  data Term□ : (Γ : Ctx) → Raw (size Γ) → Ty b → Set₁ where
+    var : {τ : Ty b} → (x : Var Γ (% τ)) → Term□ Γ (var (rawVar x)) τ
+    ƛ : {r : Raw (1 + size Γ)} {σ : Ty b₁} {τ : Ty b₂} → Term□ (Γ , % σ) r τ → Term□ Γ (ƛ r) (σ ⇒ τ)
+    _∙_ : {r₁ r₂ : Raw (size Γ)} {σ : Ty b₁} {τ : Ty b₂} → Term□ Γ r₁ (σ ⇒ τ) → Term□ Γ r₂ σ → Term□ Γ (r₁ ∙ r₂) τ
     pure : {τ : Ty ₀} → Term□ Γ (τ ⇒ □ τ)
     ap : {σ τ : Ty ₀} → Term□ Γ (□ (σ ⇒ τ) ⇒ (□ σ ⇒ □ τ))
 
@@ -507,11 +510,11 @@ module TypingJudgment where
   pure ≪ t = pure ∙ t
   ap ≪ t = ap ∙ t
 
-  elaborate : {τ : Ty b} → Term Γ τ → Term□ Γ τ
-  elaborate (sub σ<:τ t) = σ<:τ ≪ elaborate t
-  elaborate (var i) = var i
-  elaborate (ƛ s) = ƛ (elaborate s)
-  elaborate (t₁ ∙ t₂) = elaborate t₁ ∙ elaborate t₂
+  -- elaborate : {τ : Ty b} → Term Γ τ → Term□ Γ τ
+  -- elaborate (sub σ<:τ t) = σ<:τ ≪ elaborate t
+  -- elaborate (var i) = var i
+  -- elaborate (ƛ s) = ƛ (elaborate s)
+  -- elaborate (t₁ ∙ t₂) = elaborate t₁ ∙ elaborate t₂
   -- elaborate (con c) = con c
 
 -- See 'ApplicativeLaws.agda' for old attempt at proving nonambiguity
