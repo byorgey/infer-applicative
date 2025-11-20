@@ -1,6 +1,6 @@
 open import Data.Bool
 open import Data.Nat
-open import Data.Fin using (Fin)
+open import Data.Fin using (Fin ; inject₁)
 open import Data.Empty
 open import Data.Product using (Σ-syntax ; Σ ; _×_ ; _,_ ; -,_ ; proj₁ ; proj₂ )
 open import Data.Product.Properties using (≡-dec)
@@ -440,21 +440,37 @@ _-_ : {σ : ΣTy} → (Γ : Ctx) → Var Γ σ → Ctx
 (Γ , _) - vz = Γ
 (Γ , x) - vs v = (Γ - v) , x
 
+size- : {σ : ΣTy} (x : Var Γ σ) → size Γ ≡ 1 + size (Γ - x)
+size- {Γ = Γ , _} vz = refl
+size- {Γ = Γ , _} (vs x) = cong suc (size- x)
+
 wkv : {σ τ : ΣTy}  → (x : Var Γ σ) → Var (Γ - x) τ → Var Γ τ
 wkv vz y = vs y
 wkv (vs x) vz = vz
 wkv (vs x) (vs y) = vs (wkv x y)
 
+-- XXX try just making a function to project out raw version of a
+-- term, rather than indexing terms by their raw version?  Why did we
+-- need to index them anyway?
+
 module TypingJudgment where
 
   data Raw (n : ℕ) : Set where
     var : Fin n → Raw n
-    ƛ : Raw (1 + n) → Raw n
+    ƛ : Raw (suc n) → Raw n
     _∙_ : Raw n → Raw n → Raw n
 
   rawVar : {τ : ΣTy} → Var Γ τ → Fin (size Γ)
   rawVar vz = Fin.zero
   rawVar (vs x) = Fin.suc (rawVar x)
+
+  wkr′ : {n : ℕ} → Raw n → Raw (suc n)
+  wkr′ (var x) = var (inject₁ x)
+  wkr′ (ƛ r) = ƛ (wkr′ r)
+  wkr′ (r₁ ∙ r₂) = wkr′ r₁ ∙ wkr′ r₂
+
+  wkr : {σ : ΣTy} {x : Var Γ σ} → Raw (size (Γ - x)) → Raw (size Γ)
+  wkr {x = x} r rewrite (size- x) = wkr′ r
 
   -- Type-indexed terms, with applicative subtyping
   data Term : (Γ : Ctx) → Raw (size Γ) → Ty b → Set₁ where
@@ -480,35 +496,35 @@ module TypingJudgment where
     var : {τ : Ty b} → (x : Var Γ (% τ)) → Term□ Γ (var (rawVar x)) τ
     ƛ : {r : Raw (1 + size Γ)} {σ : Ty b₁} {τ : Ty b₂} → Term□ (Γ , % σ) r τ → Term□ Γ (ƛ r) (σ ⇒ τ)
     _∙_ : {r₁ r₂ : Raw (size Γ)} {σ : Ty b₁} {τ : Ty b₂} → Term□ Γ r₁ (σ ⇒ τ) → Term□ Γ r₂ σ → Term□ Γ (r₁ ∙ r₂) τ
-    pure : {τ : Ty ₀} → Term□ Γ (τ ⇒ □ τ)
-    ap : {σ τ : Ty ₀} → Term□ Γ (□ (σ ⇒ τ) ⇒ (□ σ ⇒ □ τ))
+    pure : {τ : Ty ₀} {r : Raw (size Γ)} → Term□ Γ r τ → Term□ Γ r (□ τ)
+    ap : {σ τ : Ty ₀} {r : Raw (size Γ)} → Term□ Γ r (□ (σ ⇒ τ)) → Term□ Γ r (□ σ ⇒ □ τ)
 
     -- con : (c : C) → Term□ Γ (Cty c)
 
   -- Weakening for terms.  Needed for arr case of coercion insertion.
-  wk : {σ : ΣTy} {τ : Ty b} → (x : Var Γ σ) → Term□ (Γ - x) τ → Term□ Γ τ
-  wk x (var y) = var (wkv x y)
-  wk x (ƛ t) = ƛ (wk (vs x) t)
-  wk x (t₁ ∙ t₂) = wk x t₁ ∙ wk x t₂
+  wk : {σ : ΣTy} {τ : Ty b} → (x : Var Γ σ) → {r : Raw (size (Γ - x))} → Term□ (Γ - x) r τ → Term□ Γ (wkr {Γ = Γ} r) τ
+  wk x (var y) = {!!}
+  wk x (ƛ t) = {!!} -- ƛ (wk (vs x) t)
+  wk x (t₁ ∙ t₂) = {!!} -- wk x t₁ ∙ wk x t₂
   -- wk _ (con c) = con c
-  wk _ pure = pure
-  wk _ ap = ap
+  wk _ (pure t) = {!!}
+  wk _ (ap t) = {!!}
 
   -- Coercion insertion
   -- Should definitely present these rules in the paper!
 
-  infixr 5 _≪_
+  -- infixr 5 _≪_
 
-  _≪_ : {σ : Ty b₁} {τ : Ty b₂} → σ <: τ → Term□ Γ σ → Term□ Γ τ
-  rfl ≪ t = t
-  tr σ<:τ τ<:υ ≪ t = τ<:υ ≪ σ<:τ ≪ t
-  -- η-expand at function types to apply the coercions --- could optimize this part
-  -- of course, especially if t is syntactically a lambda already
-  arr τ₁<:σ₁ σ₂<:τ₂ ≪ t = ƛ (σ₂<:τ₂ ≪ (wk vz t ∙ (τ₁<:σ₁ ≪ var vz)))
-  -- -- essentially 'fmap coerce'
-  box σ<:τ ≪ t = (ap ∙ (pure ∙ ƛ (σ<:τ ≪ var vz))) ∙ t
-  pure ≪ t = pure ∙ t
-  ap ≪ t = ap ∙ t
+  -- _≪_ : {σ : Ty b₁} {τ : Ty b₂} → σ <: τ → Term□ Γ σ → Term□ Γ τ
+  -- rfl ≪ t = t
+  -- tr σ<:τ τ<:υ ≪ t = τ<:υ ≪ σ<:τ ≪ t
+  -- -- η-expand at function types to apply the coercions --- could optimize this part
+  -- -- of course, especially if t is syntactically a lambda already
+  -- arr τ₁<:σ₁ σ₂<:τ₂ ≪ t = ƛ (σ₂<:τ₂ ≪ (wk vz t ∙ (τ₁<:σ₁ ≪ var vz)))
+  -- -- -- essentially 'fmap coerce'
+  -- box σ<:τ ≪ t = (ap ∙ (pure ∙ ƛ (σ<:τ ≪ var vz))) ∙ t
+  -- pure ≪ t = pure ∙ t
+  -- ap ≪ t = ap ∙ t
 
   -- elaborate : {τ : Ty b} → Term Γ τ → Term□ Γ τ
   -- elaborate (sub σ<:τ t) = σ<:τ ≪ elaborate t
