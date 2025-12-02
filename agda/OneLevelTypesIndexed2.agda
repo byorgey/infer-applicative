@@ -14,6 +14,8 @@ open import Relation.Nullary.Negation
 
 module OneLevelTypesIndexed2 (B : Set) (_≟B_ : DecidableEquality B) where
 
+variable t t₁ t₂ : B
+
 ------------------------------------------------------------
 -- Boxity
 ------------------------------------------------------------
@@ -54,19 +56,22 @@ data Ty : Boxity → Set where
   base : B → Ty ₀
   _⇒_ : {b₁ b₂ : Boxity} → Ty b₁ → Ty b₂ → Ty ₀
 
+variable
+  σ τ υ σ₁ σ₂ τ₁ τ₂ υ₁ υ₂ : Ty b
+
 infixr 25 _⇒_
 infix 30 □_
 
 □′ : (b ≡ ₀) → Ty b → Ty ₁
 □′ refl σ = □ σ
 
-□-inj : {τ₁ τ₂ : Ty ₀} → (□ τ₁ ≡ □ τ₂) → (τ₁ ≡ τ₂)
+□-inj : (□ τ₁ ≡ □ τ₂) → (τ₁ ≡ τ₂)
 □-inj refl = refl
 
-base-inj : {t₁ t₂ : B} → base t₁ ≡ base t₂ → t₁ ≡ t₂
+base-inj : base t₁ ≡ base t₂ → t₁ ≡ t₂
 base-inj refl = refl
 
-⇒-inj : {σ₁ : Ty b₁} {σ₂ : Ty b₂} {τ₁ : Ty b₁} {τ₂ : Ty b₂} → (σ₁ ⇒ σ₂) ≡ (τ₁ ⇒ τ₂) → (σ₁ ≡ τ₁) × (σ₂ ≡ τ₂)
+⇒-inj : (σ₁ ⇒ σ₂) ≡ (τ₁ ⇒ τ₂) → (σ₁ ≡ τ₁) × (σ₂ ≡ τ₂)
 ⇒-inj refl = refl , refl
 
 decompose-□ : (σ : Ty ₁) → Σ[ σ′ ∈ Ty ₀ ] (σ ≡ □ σ′)
@@ -120,6 +125,9 @@ Ty-≟ {b} σ τ with Ty-≟′ σ τ
 ... | no σ≢τ = no λ { refl → σ≢τ (refl , refl) }
 ... | yes (refl , refl) = yes refl
 
+variable
+  σ′ τ′ : ΣTy
+
 ------------------------------------------------------------
 -- Box erasure
 ------------------------------------------------------------
@@ -134,19 +142,19 @@ Ty-≟ {b} σ τ with Ty-≟′ σ τ
 ------------------------------------------------------------
 
 data _<:_ : Ty b₁ → Ty b₂ → Set where
-  rfl : ∀ {τ : Ty b} → τ <: τ
-  tr : {σ : Ty b₁} {τ : Ty b₂} {υ : Ty b₃} → σ <: τ → τ <: υ → σ <: υ
-  arr : {τ₁ : Ty b₁} {τ₂ : Ty b₂} {σ₁ : Ty b₃} {σ₂ : Ty b₄} → (τ₁ <: σ₁) → (σ₂ <: τ₂) → (σ₁ ⇒ σ₂) <: (τ₁ ⇒ τ₂)
-  box : ∀ {σ τ} → (σ <: τ) → (□ σ <: □ τ)
-  pure : ∀ {τ} → τ <: □ τ
-  ap : ∀ {σ τ} → □ (σ ⇒ τ) <: (□ σ ⇒ □ τ)
+  rfl : τ <: τ
+  tr : σ <: τ → τ <: υ → σ <: υ
+  arr : (τ₁ <: σ₁) → (σ₂ <: τ₂) → (σ₁ ⇒ σ₂) <: (τ₁ ⇒ τ₂)
+  box : (σ <: τ) → (□ σ <: □ τ)
+  pure : τ <: □ τ
+  ap : □ (σ ⇒ τ) <: (□ σ ⇒ □ τ)
 
 infix 20 _<:_
 
 --------------------------------------------------
 -- Subtypes have the same shape
 
-<:→⌊⌋ : {σ : Ty b₁} {τ : Ty b₂} → σ <: τ → ⌊ σ ⌋ ≡ ⌊ τ ⌋
+<:→⌊⌋ : σ <: τ → ⌊ σ ⌋ ≡ ⌊ τ ⌋
 <:→⌊⌋ rfl = refl
 <:→⌊⌋ (tr σ<:τ τ<:υ) = trans (<:→⌊⌋ σ<:τ) (<:→⌊⌋ τ<:υ)
 <:→⌊⌋ (arr τ₁<:σ₁ σ₂<:τ₂) = cong₂ _⇒_ (sym (<:→⌊⌋ τ₁<:σ₁)) (<:→⌊⌋ σ₂<:τ₂)
@@ -161,14 +169,14 @@ infix 20 _<:_
 infix 20 _◃_
 
 data _◃_ : Ty b₁ → Ty b₂ → Set where
-  rfl : {τ : Ty b} → τ ◃ τ
-  box : {σ τ : Ty ₀} → (σ ◃ τ) → □ σ ◃ □ τ
-  arr : {σ₁ : Ty b₁} {σ₂ : Ty b₂} {τ₁ : Ty b₃} {τ₂ : Ty b₄} → (τ₁ ◃ σ₁) → (σ₂ ◃ τ₂) → (σ₁ ⇒ σ₂ ◃ τ₁ ⇒ τ₂)
-  pure : {σ : Ty b} {τ : Ty ₀} → (σ ◃ τ) → σ ◃ □ τ
-  ap : {σ σ₁ σ₂ : Ty ₀} {τ : Ty b} → (σ ◃ σ₁ ⇒ σ₂) → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (□ σ ◃ τ)
-  ap□ : {σ : Ty b₁} {σ₁ σ₂ : Ty ₀} {τ : Ty b₂} → (σ ◃ σ₁ ⇒ σ₂) → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (σ ◃ τ)
+  rfl : τ ◃ τ
+  box : (σ ◃ τ) → □ σ ◃ □ τ
+  arr : (τ₁ ◃ σ₁) → (σ₂ ◃ τ₂) → (σ₁ ⇒ σ₂ ◃ τ₁ ⇒ τ₂)
+  pure : (σ ◃ τ) → σ ◃ □ τ
+  ap : (σ ◃ σ₁ ⇒ σ₂) → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (□ σ ◃ τ)
+  ap□ : (σ ◃ σ₁ ⇒ σ₂) → (□ σ₁ ⇒ □ σ₂ ◃ τ) → (σ ◃ τ)
 
-◃→<: : {σ : Ty b₁} {τ : Ty b₂} → σ ◃ τ → σ <: τ
+◃→<: : σ ◃ τ → σ <: τ
 ◃→<: rfl = rfl
 ◃→<: (box σ◃τ) = box (◃→<: σ◃τ)
 ◃→<: (pure σ◃τ) = tr (◃→<: σ◃τ) pure
@@ -176,9 +184,9 @@ data _◃_ : Ty b₁ → Ty b₂ → Set where
 ◃→<: (ap□ σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃τ) = tr (◃→<: σ◃σ₁⇒σ₂) (tr pure (tr ap (◃→<: □σ₁⇒□σ₂◃τ)))
 ◃→<: (arr σ◃τ₁ τ₁◃τ) = arr (◃→<: σ◃τ₁) (◃→<: τ₁◃τ)
 
-◃-trans : {σ : Ty b₁} {τ : Ty b₂} {υ : Ty b₃} → σ ◃ τ → τ ◃ υ → σ ◃ υ
-◃-trans-arr-ap□ : {τ₁ : Ty b₁} {τ₂ : Ty b₂} {σ₁ : Ty b₃} {σ₂ : Ty b₄} {υ₁ υ₂ : Ty ₀} {υ : Ty b₅} → τ₁ ◃ σ₁ → σ₂ ◃ τ₂ → (τ₁ ⇒ τ₂ ◃ υ₁ ⇒ υ₂) → (□ υ₁ ⇒ □ υ₂ ◃ υ) → σ₁ ⇒ σ₂ ◃ υ
-◃-trans-pureL : {σ : Ty b₁} {τ : Ty ₀} {υ : Ty b₂} → σ ◃ τ → □ τ ◃ υ → σ ◃ υ
+◃-trans : σ ◃ τ → τ ◃ υ → σ ◃ υ
+◃-trans-arr-ap□ : τ₁ ◃ σ₁ → σ₂ ◃ τ₂ → (τ₁ ⇒ τ₂ ◃ υ₁ ⇒ υ₂) → (□ υ₁ ⇒ □ υ₂ ◃ υ) → σ₁ ⇒ σ₂ ◃ υ
+◃-trans-pureL : σ ◃ τ → □ τ ◃ υ → σ ◃ υ
 
 ◃-trans rfl τ◃υ = τ◃υ
 ◃-trans (box σ◃τ) rfl = box σ◃τ
@@ -211,7 +219,7 @@ data _◃_ : Ty b₁ → Ty b₂ → Set where
 -- Now we can show that if σ <: τ then σ ◃ τ.  All the cases are
 -- immediate except for transitivity, for which we use the previous
 -- lemma.
-<:→◃ : {σ : Ty b₁} {τ : Ty b₂} → σ <: τ → σ ◃ τ
+<:→◃ : σ <: τ → σ ◃ τ
 <:→◃ rfl = rfl
 <:→◃ (tr σ<:τ₁ τ₁<:τ) = ◃-trans (<:→◃ σ<:τ₁) (<:→◃ τ₁<:τ)
 <:→◃ (arr τ₁<:σ₁ σ₂<:τ₂) = arr (<:→◃ τ₁<:σ₁) (<:→◃ σ₂<:τ₂)
@@ -220,46 +228,46 @@ data _◃_ : Ty b₁ → Ty b₂ → Set where
 <:→◃ ap = ap rfl rfl
 
 -- pureL is admissible
-pureL : {σ : Ty ₀} {τ : Ty b} → □ σ ◃ τ → σ ◃ τ
+pureL : □ σ ◃ τ → σ ◃ τ
 pureL □σ◃τ = <:→◃ (tr pure (◃→<: □σ◃τ))
 
 ------------------------------------------------------------
 -- Inversion/impossibility lemmas
 ------------------------------------------------------------
 
-¬B◃⇒ : {t : B} {τ₁ : Ty b₁} {τ₂ : Ty b₂} → ¬ (base t ◃ τ₁ ⇒ τ₂)
+¬B◃⇒ : ¬ (base t ◃ τ₁ ⇒ τ₂)
 ¬B◃⇒ (ap□ p _) = ¬B◃⇒ p
 
-¬□B◃⇒ : {t : B} {τ₁ : Ty b₁} {τ₂ : Ty b₂} → ¬ (□ base t ◃ τ₁ ⇒ τ₂)
+¬□B◃⇒ : ¬ (□ base t ◃ τ₁ ⇒ τ₂)
 ¬□B◃⇒ (ap p _) = ⊥-elim (¬B◃⇒ p)
 ¬□B◃⇒ (ap□ p _) = ¬□B◃⇒ p
 
-¬⇒◃B : {τ₁ : Ty b₁} {τ₂ : Ty b₂} {t : B} → ¬ (τ₁ ⇒ τ₂ ◃ base t)
+¬⇒◃B : ¬ (τ₁ ⇒ τ₂ ◃ base t)
 ¬⇒◃B (ap□ _ p) = ¬⇒◃B p
 
-¬□◃B : {τ : Ty ₀} {t : B} → ¬ (□ τ ◃ base t)
+¬□◃B : ¬ (□ τ ◃ base t)
 ¬□◃B (ap _ p) = ¬⇒◃B p
 ¬□◃B (ap□ _ p) = ¬⇒◃B p
 
 -- If τ is a subtype of a base type, then in fact τ must be equal to
 -- that base type (and its boxity must be 0).
-◃B-inv : {τ : Ty b} {t : B} → τ ◃ base t → Σ[ p ∈ (b ≡ ₀) ] (_≡⟦_⟧_ {_} {Ty} τ p (base t))
+◃B-inv : τ ◃ base t → Σ[ p ∈ (b ≡ ₀) ] (_≡⟦_⟧_ {_} {Ty} τ p (base t))
 ◃B-inv rfl = refl , refl
 ◃B-inv (ap _ ⇒◃t) = ⊥-elim (¬⇒◃B ⇒◃t)
 ◃B-inv (ap□ _ ⇒◃t) = ⊥-elim (¬⇒◃B ⇒◃t)
 
 -- Simpler version restricted to boxity-0 types
-◃B-inv₀ : {τ : Ty ₀} {t : B} → τ ◃ base t → τ ≡ base t
+◃B-inv₀ : τ ◃ base t → τ ≡ base t
 ◃B-inv₀ rfl = refl
 ◃B-inv₀ (ap□ _ ⇒◃t) = ⊥-elim (¬⇒◃B ⇒◃t)
 
-B◃□-inv : {t : B} {τ : Ty ₀} → base t ◃ □ τ → base t ◃ τ
+B◃□-inv : base t ◃ □ τ → base t ◃ τ
 B◃□-inv (pure t◃□τ) = t◃□τ
 B◃□-inv (ap□ t◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ⊥-elim (¬B◃⇒ t◃σ₁⇒σ₂)
 
 -- This inversion lemma is easy, because we don't have to worry
 -- about transitivity! yippee!
-⇒◃□-inv : {σ₁ : Ty b₁} {σ₂ : Ty b₂} {τ : Ty ₀} → σ₁ ⇒ σ₂ ◃ □ τ → σ₁ ⇒ σ₂ ◃ τ
+⇒◃□-inv : σ₁ ⇒ σ₂ ◃ □ τ → σ₁ ⇒ σ₂ ◃ τ
 ⇒◃□-inv (pure s) = s
 ⇒◃□-inv (ap□ f g) = ap□ f (⇒◃□-inv g)
 
@@ -271,7 +279,7 @@ B◃□-inv (ap□ t◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ⊥-elim (¬
 -- rewritten to have 'box' as its outermost constructor. Put yet
 -- another way, any term of type □ σ → □ τ can be rewritten to have
 -- 'fmap' as its outermost function call.
-□-inv : {σ τ : Ty ₀} → □ σ ◃ □ τ → σ ◃ τ
+□-inv : □ σ ◃ □ τ → σ ◃ τ
 □-inv rfl = rfl
 □-inv (box p) = p
 □-inv (pure p) = pureL p
@@ -280,7 +288,10 @@ B◃□-inv (ap□ t◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ⊥-elim (¬
 
 -- If a type with no outermost box is a subtype of a type with an
 -- outermost box, we can remove the box.
-unbox : {σ τ : Ty ₀} → σ ◃ □ τ → σ ◃ τ
+--
+-- Note we need {σ : Ty ₀} explicitly since this is not true without
+-- the restriction on σ.
+unbox : {σ : Ty ₀} → σ ◃ □ τ → σ ◃ τ
 unbox (pure σ◃τ) = σ◃τ
 unbox (ap□ σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ap□ σ◃σ₁⇒σ₂ (unbox □σ₁⇒□σ₂◃□τ)
 
@@ -290,7 +301,7 @@ unbox (ap□ σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ap□ σ◃σ₁�
 
 -- If two arrow types are in the ◃ relation, then their right-hand
 -- arguments are in the ◃ relation as well.
-⇒-invʳ : {σ₁ : Ty b₁} {σ₂ : Ty b₂} {τ₁ : Ty b₃} {τ₂ : Ty b₄} → (σ₁ ⇒ σ₂) ◃ (τ₁ ⇒ τ₂) → σ₂ ◃ τ₂
+⇒-invʳ : (σ₁ ⇒ σ₂) ◃ (τ₁ ⇒ τ₂) → σ₂ ◃ τ₂
 ⇒-invʳ rfl = rfl
 ⇒-invʳ (arr _ pf) = pf
 ⇒-invʳ {σ₂ = σ₂} (ap□ pf₁ pf₂) = ◃-trans (⇒-invʳ pf₁) (◃-trans (pure rfl) (⇒-invʳ pf₂))
@@ -313,7 +324,7 @@ unbox (ap□ σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ap□ σ◃σ₁�
 -- ... | inj₁ τ₁◃□σ₃ | inj₁ σ₃◃σ₁ = inj₂ (refl , ◃-trans τ₁◃□σ₃ (box σ₃◃σ₁))
 -- ... | inj₁ τ₁◃□σ₃ | inj₂ (refl , σ₃◃□σ₁) = inj₂ (refl , ◃-trans τ₁◃□σ₃ (box (unbox σ₃◃□σ₁)))
 
-⇒-invˡ : {σ₁ : Ty b₁} {σ₂ : Ty b₂} {τ₁ : Ty b₃} {τ₂ : Ty b₄} → (σ₁ ⇒ σ₂) ◃ (τ₁ ⇒ τ₂) → (τ₁ ◃ σ₁) ⊎ Σ[ p ∈ b₁ ≡ ₀ ] (τ₁ ◃ □′ p σ₁) × Σ[ q ∈ b₂ ≡ ₀ ] (□′ q σ₂ ◃ τ₂)
+⇒-invˡ : (σ₁ ⇒ σ₂) ◃ (τ₁ ⇒ τ₂) → (τ₁ ◃ σ₁) ⊎ Σ[ p ∈ b₁ ≡ ₀ ] (τ₁ ◃ □′ p σ₁) × Σ[ q ∈ b₂ ≡ ₀ ] (□′ q σ₂ ◃ τ₂)
 ⇒-invˡ rfl = inj₁ rfl
 ⇒-invˡ (arr τ₁◃σ₁ _) = inj₁ τ₁◃σ₁
 ⇒-invˡ (ap□ σ₁⇒σ₂◃σ₃⇒σ₄ □σ₃⇒□σ₄◃τ₁⇒τ₂) = {!!}
@@ -338,7 +349,7 @@ lem₁ (¬P , ¬Q) (inj₂ Q) = ¬Q Q
 -- Subtyping is decidable
 ------------------------------------------------------------
 
-◃-Dec : {b₁ b₂ : Boxity} → Decidable (_◃_ {b₁} {b₂})
+◃-Dec : Decidable (_◃_ {b₁} {b₂})
 
 -- First, some impossible cases.
 ◃-Dec (base _) (_ ⇒ _) = no ¬B◃⇒
@@ -432,107 +443,104 @@ size (c , _) = suc (size c)
 -- Keller + Alternkirch, "Normalization by hereditary substitutions"
 -- https://www.cs.nott.ac.uk/~psztxa/publ/msfp10.pdf
 data Var : Ctx → ΣTy → Set₁ where
-  vz : {τ : ΣTy} → Var (Γ , τ) τ
-  vs : {σ τ : ΣTy} → Var Γ τ → Var (Γ , σ) τ
+  vz : Var (Γ , τ′) τ′
+  vs : Var Γ τ′ → Var (Γ , σ′) τ′
 
-_-_ : {σ : ΣTy} → (Γ : Ctx) → Var Γ σ → Ctx
+_-_ : (Γ : Ctx) → Var Γ σ′ → Ctx
 ∅ - ()
 (Γ , _) - vz = Γ
 (Γ , x) - vs v = (Γ - v) , x
 
-size- : {σ : ΣTy} (x : Var Γ σ) → size Γ ≡ 1 + size (Γ - x)
+size- : (x : Var Γ σ′) → size Γ ≡ 1 + size (Γ - x)
 size- {Γ = Γ , _} vz = refl
 size- {Γ = Γ , _} (vs x) = cong suc (size- x)
 
-wkv : {σ τ : ΣTy}  → (x : Var Γ σ) → Var (Γ - x) τ → Var Γ τ
+wkv : (x : Var Γ σ′) → Var (Γ - x) τ′ → Var Γ τ′
 wkv vz y = vs y
 wkv (vs x) vz = vz
 wkv (vs x) (vs y) = vs (wkv x y)
 
-module TypingJudgment where
+data Raw (n : ℕ) : Set where
+  var : Fin n → Raw n
+  ƛ : Raw (suc n) → Raw n
+  _∙_ : Raw n → Raw n → Raw n
 
-  data Raw (n : ℕ) : Set where
-    var : Fin n → Raw n
-    ƛ : Raw (suc n) → Raw n
-    _∙_ : Raw n → Raw n → Raw n
+rawVar : Var Γ τ′ → Fin (size Γ)
+rawVar vz = Fin.zero
+rawVar (vs x) = Fin.suc (rawVar x)
 
-  rawVar : {τ : ΣTy} → Var Γ τ → Fin (size Γ)
-  rawVar vz = Fin.zero
-  rawVar (vs x) = Fin.suc (rawVar x)
+-- wkr′ : {n : ℕ} → Raw n → Raw (suc n)
+-- wkr′ (var x) = var (inject₁ x)
+-- wkr′ (ƛ r) = ƛ (wkr′ r)
+-- wkr′ (r₁ ∙ r₂) = wkr′ r₁ ∙ wkr′ r₂
 
-  -- wkr′ : {n : ℕ} → Raw n → Raw (suc n)
-  -- wkr′ (var x) = var (inject₁ x)
-  -- wkr′ (ƛ r) = ƛ (wkr′ r)
-  -- wkr′ (r₁ ∙ r₂) = wkr′ r₁ ∙ wkr′ r₂
+-- wkr : {σ : ΣTy} {x : Var Γ σ} → Raw (size (Γ - x)) → Raw (size Γ)
+-- wkr {x = x} r rewrite (size- x) = wkr′ r
 
-  -- wkr : {σ : ΣTy} {x : Var Γ σ} → Raw (size (Γ - x)) → Raw (size Γ)
-  -- wkr {x = x} r rewrite (size- x) = wkr′ r
+data Term : (Γ : Ctx) → Ty b → Set₁ where
+  sub : σ <: τ → Term Γ σ → Term Γ τ
+  var : (x : Var Γ (% τ)) → Term Γ τ
+  ƛ : Term (Γ , % σ) τ → Term Γ (σ ⇒ τ)
+  _∙_ : Term Γ (σ ⇒ τ) → Term Γ σ → Term Γ τ
 
-  data Term : (Γ : Ctx) → Ty b → Set₁ where
-    sub : {σ : Ty b₁} {τ : Ty b₂} → σ <: τ → Term Γ σ → Term Γ τ
-    var : {τ : Ty b} → (x : Var Γ (% τ)) → Term Γ τ
-    ƛ : {σ : Ty b₁} {τ : Ty b₂} → Term (Γ , % σ) τ → Term Γ (σ ⇒ τ)
-    _∙_ : {σ : Ty b₁} {τ : Ty b₂} → Term Γ (σ ⇒ τ) → Term Γ σ → Term Γ τ
+raw : Term Γ τ → Raw (size Γ)
+raw (sub _ t) = raw t
+raw (var x) = var (rawVar x)
+raw (ƛ t) = ƛ (raw t)
+raw (t₁ ∙ t₂) = raw t₁ ∙ raw t₂
 
-  raw : {τ : Ty b} → Term Γ τ → Raw (size Γ)
-  raw (sub _ t) = raw t
-  raw (var x) = var (rawVar x)
-  raw (ƛ t) = ƛ (raw t)
-  raw (t₁ ∙ t₂) = raw t₁ ∙ raw t₂
+-- Type-indexed terms extended with extra `pure` and `ap` constants
+data Term□ : (Γ : Ctx) → Ty b → Set₁ where
+  var : (x : Var Γ (% τ)) → Term□ Γ τ
+  ƛ : Term□ (Γ , % σ) τ → Term□ Γ (σ ⇒ τ)
+  _∙_ : Term□ Γ (σ ⇒ τ) → Term□ Γ σ → Term□ Γ τ
+  pure : Term□ Γ τ → Term□ Γ (□ τ)
+  ap : Term□ Γ (□ (σ ⇒ τ)) → Term□ Γ (□ σ ⇒ □ τ)
+  -- con : (c : C) → Term□ Γ (Cty c)
 
-  -- Type-indexed terms extended with extra `pure` and `ap` constants
-  data Term□ : (Γ : Ctx) → Ty b → Set₁ where
-    var : {τ : Ty b} → (x : Var Γ (% τ)) → Term□ Γ τ
-    ƛ : {σ : Ty b₁} {τ : Ty b₂} → Term□ (Γ , % σ) τ → Term□ Γ (σ ⇒ τ)
-    _∙_ : {σ : Ty b₁} {τ : Ty b₂} → Term□ Γ (σ ⇒ τ) → Term□ Γ σ → Term□ Γ τ
-    pure : {τ : Ty ₀} → Term□ Γ τ → Term□ Γ (□ τ)
-    ap : {σ τ : Ty ₀} → Term□ Γ (□ (σ ⇒ τ)) → Term□ Γ (□ σ ⇒ □ τ)
-    -- con : (c : C) → Term□ Γ (Cty c)
+-- Weakening for terms.  Needed for arr case of coercion insertion.
+wk : (x : Var Γ σ′) → Term□ (Γ - x) τ → Term□ Γ τ
+wk x (var y) = var (wkv x y)
+wk x (ƛ t) = ƛ (wk (vs x) t)
+wk x (t₁ ∙ t₂) = wk x t₁ ∙ wk x t₂
+-- wk _ (con c) = con c
+wk x (pure t) = pure (wk x t)
+wk x (ap t) = ap (wk x t)
 
-  -- Weakening for terms.  Needed for arr case of coercion insertion.
-  wk : {σ : ΣTy} {τ : Ty b} → (x : Var Γ σ) → Term□ (Γ - x) τ → Term□ Γ τ
-  wk x (var y) = {!!}
-  wk x (ƛ t) = ƛ (wk (vs x) t)
-  wk x (t₁ ∙ t₂) = wk x t₁ ∙ wk x t₂
-  -- wk _ (con c) = con c
-  wk x (pure t) = pure (wk x t)
-  wk x (ap t) = ap (wk x t)
+-- Coercion insertion
 
-  -- Coercion insertion
-  -- Should definitely present these rules in the paper!
+infixr 5 _≪_
 
-  infixr 5 _≪_
+_≪_ : σ <: τ → Term□ Γ σ → Term□ Γ τ
+rfl ≪ t = t
+tr σ<:τ τ<:υ ≪ t = τ<:υ ≪ σ<:τ ≪ t
+-- η-expand at function types to apply the coercions --- could optimize this part
+-- of course, especially if t is syntactically a lambda already
+arr τ₁<:σ₁ σ₂<:τ₂ ≪ t = ƛ (σ₂<:τ₂ ≪ (wk vz t ∙ (τ₁<:σ₁ ≪ var vz)))
+-- -- essentially 'fmap coerce'
+box σ<:τ ≪ t = (ap (pure (ƛ (σ<:τ ≪ var vz)))) ∙ t
+pure ≪ t = pure t
+ap ≪ t = ap t
 
-  _≪_ : {σ : Ty b₁} {τ : Ty b₂} → σ <: τ → Term□ Γ σ → Term□ Γ τ
-  rfl ≪ t = t
-  tr σ<:τ τ<:υ ≪ t = τ<:υ ≪ σ<:τ ≪ t
-  -- η-expand at function types to apply the coercions --- could optimize this part
-  -- of course, especially if t is syntactically a lambda already
-  arr τ₁<:σ₁ σ₂<:τ₂ ≪ t = ƛ (σ₂<:τ₂ ≪ (wk vz t ∙ (τ₁<:σ₁ ≪ var vz)))
-  -- -- essentially 'fmap coerce'
-  box σ<:τ ≪ t = (ap (pure (ƛ (σ<:τ ≪ var vz)))) ∙ t
-  pure ≪ t = pure t
-  ap ≪ t = ap t
+elaborate : Term Γ τ → Term□ Γ τ
+elaborate (sub σ<:τ t) = σ<:τ ≪ elaborate t
+elaborate (var i) = var i
+elaborate (ƛ s) = ƛ (elaborate s)
+elaborate (t₁ ∙ t₂) = elaborate t₁ ∙ elaborate t₂
+-- elaborate (con c) = con c
 
-  elaborate : {τ : Ty b} → Term Γ τ → Term□ Γ τ
-  elaborate (sub σ<:τ t) = σ<:τ ≪ elaborate t
-  elaborate (var i) = var i
-  elaborate (ƛ s) = ƛ (elaborate s)
-  elaborate (t₁ ∙ t₂) = elaborate t₁ ∙ elaborate t₂
-  -- elaborate (con c) = con c
+------------------------------------------------------------
+-- Equivalence up to β, η, + Applicative laws
 
-  -- Now we want to prove a theorem like this:
-  -- thm : {Γ : Ctx} {r : Raw (size Γ)} {t₁ t₂ : Term Γ τ}
-  --   → (raw t₁ ≡ r) → (raw t₂ ≡ r) → elaborate t₁ ≅ elaborate t₂
-  --
-  -- where ≅ is equivalence up to β, η, and Applicative laws.
+-- variable
+--   s t u : Term□ Γ τ
 
--- See 'ApplicativeLaws.agda' for old attempt at proving nonambiguity
--- up to Applicative laws etc.  It set out to prove that if we have a
--- term t of type σ, and two different subtyping proofs σ <: τ, then
--- the two different elaborations of t to type τ are equivalent (up to
--- the Applicative laws).  But now I am wondering whether this would
--- even be sufficient.  Don't we also want something like: if t is
--- some raw term and τ is a type, then all valid derivations of t : τ
--- elaborate to equivalent terms.  How to even state this?  Need to
--- index derivations by the raw term as well?
+-- compose : Term□ Γ ((τ ⇒ υ) ⇒ (σ ⇒ τ) ⇒ σ ⇒ υ)
+-- compose =  ƛ (ƛ (ƛ (var (vs (vs vz)) ∙ (var (vs vz) ∙ var vz))))
+
+
+-- Now we want to prove a theorem like this:
+-- thm : {Γ : Ctx} {r : Raw (size Γ)} {t₁ t₂ : Term Γ τ}
+--   → (raw t₁ ≡ r) → (raw t₂ ≡ r) → elaborate t₁ ≅ elaborate t₂
+--
+-- where ≅ is equivalence up to β, η, and Applicative laws.
