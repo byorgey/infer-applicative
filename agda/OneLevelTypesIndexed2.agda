@@ -12,9 +12,9 @@ open import Relation.Nullary.Decidable using (yes; no; Dec)
 open import Relation.Nullary.Negation.Core
 open import Relation.Nullary.Negation
 
-module OneLevelTypesIndexed2 (B : Set) (_≟B_ : DecidableEquality B) where
+module OneLevelTypesIndexed2 (Base : Set) (_≟B_ : DecidableEquality Base) where
 
-variable t t₁ t₂ : B
+variable B B₁ B₂ : Base
 
 ------------------------------------------------------------
 -- Boxity
@@ -53,7 +53,7 @@ b₀ ≡⟦ refl ⟧ b₁   =   b₀ ≡ b₁
 
 data Ty : Boxity → Set where
   □_ : Ty ₀ → Ty ₁
-  base : B → Ty ₀
+  base : Base → Ty ₀
   _⇒_ : {b₁ b₂ : Boxity} → Ty b₁ → Ty b₂ → Ty ₀
 
 variable
@@ -68,7 +68,7 @@ infix 30 □_
 □-inj : (□ τ₁ ≡ □ τ₂) → (τ₁ ≡ τ₂)
 □-inj refl = refl
 
-base-inj : base t₁ ≡ base t₂ → t₁ ≡ t₂
+base-inj : base B₁ ≡ base B₂ → B₁ ≡ B₂
 base-inj refl = refl
 
 ⇒-inj : (σ₁ ⇒ σ₂) ≡ (τ₁ ⇒ τ₂) → (σ₁ ≡ τ₁) × (σ₂ ≡ τ₂)
@@ -235,33 +235,33 @@ pureL □σ◃τ = <:→◃ (tr pure (◃→<: □σ◃τ))
 -- Inversion/impossibility lemmas
 ------------------------------------------------------------
 
-¬B◃⇒ : ¬ (base t ◃ τ₁ ⇒ τ₂)
+¬B◃⇒ : ¬ (base B ◃ τ₁ ⇒ τ₂)
 ¬B◃⇒ (ap□ p _) = ¬B◃⇒ p
 
-¬□B◃⇒ : ¬ (□ base t ◃ τ₁ ⇒ τ₂)
+¬□B◃⇒ : ¬ (□ base B ◃ τ₁ ⇒ τ₂)
 ¬□B◃⇒ (ap p _) = ⊥-elim (¬B◃⇒ p)
 ¬□B◃⇒ (ap□ p _) = ¬□B◃⇒ p
 
-¬⇒◃B : ¬ (τ₁ ⇒ τ₂ ◃ base t)
+¬⇒◃B : ¬ (τ₁ ⇒ τ₂ ◃ base B)
 ¬⇒◃B (ap□ _ p) = ¬⇒◃B p
 
-¬□◃B : ¬ (□ τ ◃ base t)
+¬□◃B : ¬ (□ τ ◃ base B)
 ¬□◃B (ap _ p) = ¬⇒◃B p
 ¬□◃B (ap□ _ p) = ¬⇒◃B p
 
 -- If τ is a subtype of a base type, then in fact τ must be equal to
 -- that base type (and its boxity must be 0).
-◃B-inv : τ ◃ base t → Σ[ p ∈ (b ≡ ₀) ] (_≡⟦_⟧_ {_} {Ty} τ p (base t))
+◃B-inv : τ ◃ base B → Σ[ p ∈ (b ≡ ₀) ] (_≡⟦_⟧_ {_} {Ty} τ p (base B))
 ◃B-inv rfl = refl , refl
 ◃B-inv (ap _ ⇒◃t) = ⊥-elim (¬⇒◃B ⇒◃t)
 ◃B-inv (ap□ _ ⇒◃t) = ⊥-elim (¬⇒◃B ⇒◃t)
 
 -- Simpler version restricted to boxity-0 types
-◃B-inv₀ : τ ◃ base t → τ ≡ base t
+◃B-inv₀ : τ ◃ base B → τ ≡ base B
 ◃B-inv₀ rfl = refl
 ◃B-inv₀ (ap□ _ ⇒◃t) = ⊥-elim (¬⇒◃B ⇒◃t)
 
-B◃□-inv : base t ◃ □ τ → base t ◃ τ
+B◃□-inv : base B ◃ □ τ → base B ◃ τ
 B◃□-inv (pure t◃□τ) = t◃□τ
 B◃□-inv (ap□ t◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ⊥-elim (¬B◃⇒ t◃σ₁⇒σ₂)
 
@@ -357,7 +357,7 @@ lem₁ (¬P , ¬Q) (inj₂ Q) = ¬Q Q
 ◃-Dec (□ _) (base _) = no ¬□◃B
 
 -- There's no subtyping among base types, so just check for equality.
-◃-Dec (base t₁) (base t₂) with t₁ ≟B t₂
+◃-Dec (base B₁) (base B₂) with B₁ ≟B B₂
 ... | no t₁≢t₂ = no (contraposition (base-inj ∘ ◃B-inv₀) t₁≢t₂)
 ... | yes t₁≡t₂ rewrite t₁≡t₂ = yes rfl
 
@@ -533,7 +533,7 @@ elaborate (t₁ ∙ t₂) = elaborate t₁ ∙ elaborate t₂
 -- Equivalence up to β, η, + Applicative laws
 
 -- variable
---   s t u : Term□ Γ τ
+--    : Term□ Γ τ
 
 -- compose : Term□ Γ ((τ ⇒ υ) ⇒ (σ ⇒ τ) ⇒ σ ⇒ υ)
 -- compose =  ƛ (ƛ (ƛ (var (vs (vs vz)) ∙ (var (vs vz) ∙ var vz))))
