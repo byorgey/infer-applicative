@@ -532,12 +532,48 @@ elaborate (t₁ ∙ t₂) = elaborate t₁ ∙ elaborate t₂
 ------------------------------------------------------------
 -- Equivalence up to β, η, + Applicative laws
 
--- variable
---    : Term□ Γ τ
+variable
+  s t u : Term□ Γ τ
 
--- compose : Term□ Γ ((τ ⇒ υ) ⇒ (σ ⇒ τ) ⇒ σ ⇒ υ)
--- compose =  ƛ (ƛ (ƛ (var (vs (vs vz)) ∙ (var (vs vz) ∙ var vz))))
+compose : Term□ Γ ((τ ⇒ υ) ⇒ (σ ⇒ τ) ⇒ σ ⇒ υ)
+compose =  ƛ (ƛ (ƛ (var (vs (vs vz)) ∙ (var (vs vz) ∙ var vz))))
 
+id : Term□ Γ (σ ⇒ σ)
+id = ƛ (var vz)
+
+infixl 5 _<*>_
+_<*>_ : Term□ Γ (□ (σ ⇒ τ)) → Term□ Γ (□ σ) → Term□ Γ (□ τ)
+f <*> x = ap f ∙ x
+
+-- Term equivalence up to Applicative laws
+infix 4 _≈_
+data _≈_ : Term□ Γ τ → Term□ Γ τ → Set₁ where
+
+  -- Equivalence and congruence laws
+  ≈refl : s ≈ s
+  ≈trans : s ≈ t → t ≈ u → s ≈ u
+  ≈sym : s ≈ t → t ≈ s
+  ≈cong : {Γ₁ Γ₂ : Ctx} {s t : Term□ Γ₁ σ} → (f : Term□ Γ₁ σ → Term□ Γ₂ τ) → s ≈ t → f s ≈ f t
+
+  -- η-equivalence
+  η : {t : Term□ Γ (σ ⇒ τ)} → t ≈ (ƛ (wk vz t ∙ var vz))
+
+  -- Applicative laws
+
+  -- pure id <*> v = v                            -- Identity
+  idt : (pure id) <*> s ≈ s
+
+  -- pure f <*> pure x = pure (f x)               -- Homomorphism
+  hom : (pure s) <*> (pure t) ≈ pure (s ∙ t)
+
+  -- u <*> pure y = pure ($ y) <*> u              -- Interchange
+  int : s <*> pure t ≈ (pure (ƛ (var vz ∙ wk vz t))) <*> s
+
+  -- pure (.) <*> u <*> v <*> w = u <*> (v <*> w) -- Composition
+  pur : pure compose <*> s <*> t <*> u ≈ s <*> (t <*> u)
+
+------------------------------------------------------------
+-- Coherence theorem
 
 -- Now we want to prove a theorem like this:
 -- thm : {Γ : Ctx} {r : Raw (size Γ)} {t₁ t₂ : Term Γ τ}
