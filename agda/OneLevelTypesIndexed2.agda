@@ -1,6 +1,7 @@
 open import Data.Bool
 open import Data.Nat
 open import Data.Fin using (Fin ; inject₁)
+open import Data.Fin.Properties using (suc-injective)
 open import Data.Empty
 open import Data.Product using (Σ-syntax ; Σ ; _×_ ; _,_ ; -,_ ; proj₁ ; proj₂ )
 open import Data.Product.Properties using (≡-dec)
@@ -14,6 +15,7 @@ open import Relation.Nullary.Negation
 
 module OneLevelTypesIndexed2 (Base : Set) (_≟B_ : DecidableEquality Base) where
 
+variable n : ℕ
 variable B B₁ B₂ : Base
 
 ------------------------------------------------------------
@@ -426,34 +428,33 @@ lem₁ (¬P , ¬Q) (inj₂ Q) = ¬Q Q
 -- Typing + coercion elaboration
 ------------------------------------------------------------
 
-data Ctx : Set where
-  ∅ : Ctx
-  _,_ : Ctx → ΣTy → Ctx
+data Ctx : ℕ → Set where
+  ∅ : Ctx 0
+  _,_ : Ctx n → ΣTy → Ctx (suc n)
 
 infixr 4 _,_
 
 variable
-  Γ : Ctx
+  Γ : Ctx n
 
-size : Ctx → ℕ
-size ∅ = 0
-size (c , _) = suc (size c)
+-- size : Ctx → ℕ
+-- size ∅ = 0
+-- size (c , _) = suc (size c)
 
 -- Approach to variables + weakening taken from
 -- Keller + Alternkirch, "Normalization by hereditary substitutions"
 -- https://www.cs.nott.ac.uk/~psztxa/publ/msfp10.pdf
-data Var : Ctx → ΣTy → Set₁ where
+data Var : Ctx n → ΣTy → Set₁ where
   vz : Var (Γ , τ′) τ′
   vs : Var Γ τ′ → Var (Γ , σ′) τ′
 
-_-_ : (Γ : Ctx) → Var Γ σ′ → Ctx
-∅ - ()
+_-_ : (Γ : Ctx (suc n)) → Var Γ σ′ → Ctx n
 (Γ , _) - vz = Γ
-(Γ , x) - vs v = (Γ - v) , x
+(Γ , x) - vs v = {!? , ?!}  -- (Γ - v) , x
 
-size- : (x : Var Γ σ′) → size Γ ≡ 1 + size (Γ - x)
-size- {Γ = Γ , _} vz = refl
-size- {Γ = Γ , _} (vs x) = cong suc (size- x)
+-- size- : (x : Var Γ σ′) → size Γ ≡ 1 + size (Γ - x)
+-- size- {Γ = Γ , _} vz = refl
+-- size- {Γ = Γ , _} (vs x) = cong suc (size- x)
 
 wkv : (x : Var Γ σ′) → Var (Γ - x) τ′ → Var Γ τ′
 wkv vz y = vs y
@@ -465,32 +466,31 @@ data Raw (n : ℕ) : Set where
   ƛ : Raw (suc n) → Raw n
   _∙_ : Raw n → Raw n → Raw n
 
-rawVar : Var Γ τ′ → Fin (size Γ)
+variable
+  r : Raw n
+
+rawVar : {Γ : Ctx n} → Var Γ τ′ → Fin n
 rawVar vz = Fin.zero
 rawVar (vs x) = Fin.suc (rawVar x)
 
--- wkr′ : {n : ℕ} → Raw n → Raw (suc n)
--- wkr′ (var x) = var (inject₁ x)
--- wkr′ (ƛ r) = ƛ (wkr′ r)
--- wkr′ (r₁ ∙ r₂) = wkr′ r₁ ∙ wkr′ r₂
+rawVar-inj : (x y : Var Γ τ′) → rawVar x ≡ rawVar y → x ≡ y
+rawVar-inj vz vz _ = refl
+rawVar-inj (vs x) (vs y) eq = cong vs (rawVar-inj x y (suc-injective eq))
 
--- wkr : {σ : ΣTy} {x : Var Γ σ} → Raw (size (Γ - x)) → Raw (size Γ)
--- wkr {x = x} r rewrite (size- x) = wkr′ r
-
-data Term : (Γ : Ctx) → Ty b → Set₁ where
+data Term : (Γ : Ctx n) → Ty b → Set₁ where
   sub : σ <: τ → Term Γ σ → Term Γ τ
   var : (x : Var Γ (% τ)) → Term Γ τ
   ƛ : Term (Γ , % σ) τ → Term Γ (σ ⇒ τ)
   _∙_ : Term Γ (σ ⇒ τ) → Term Γ σ → Term Γ τ
 
-raw : Term Γ τ → Raw (size Γ)
+raw : {Γ : Ctx n} → Term Γ τ → Raw n
 raw (sub _ t) = raw t
-raw (var x) = var (rawVar x)
+raw (var x) = {!!}
 raw (ƛ t) = ƛ (raw t)
 raw (t₁ ∙ t₂) = raw t₁ ∙ raw t₂
 
 -- Type-indexed terms extended with extra `pure` and `ap` constants
-data Term□ : (Γ : Ctx) → Ty b → Set₁ where
+data Term□ : (Γ : Ctx n) → Ty b → Set₁ where
   var : (x : Var Γ (% τ)) → Term□ Γ τ
   ƛ : Term□ (Γ , % σ) τ → Term□ Γ (σ ⇒ τ)
   _∙_ : Term□ Γ (σ ⇒ τ) → Term□ Γ σ → Term□ Γ τ
@@ -553,7 +553,7 @@ data _≈_ : Term□ Γ τ → Term□ Γ τ → Set₁ where
   ≈refl : s ≈ s
   ≈trans : s ≈ t → t ≈ u → s ≈ u
   ≈sym : s ≈ t → t ≈ s
-  ≈cong : {Γ₁ Γ₂ : Ctx} {s t : Term□ Γ₁ σ} → (f : Term□ Γ₁ σ → Term□ Γ₂ τ) → s ≈ t → f s ≈ f t
+  ≈cong : {Γ₁ Γ₂ : Ctx n} {s t : Term□ Γ₁ σ} → (f : Term□ Γ₁ σ → Term□ Γ₂ τ) → s ≈ t → f s ≈ f t
 
   -- η-equivalence
   η : {t : Term□ Γ (σ ⇒ τ)} → t ≈ (ƛ (wk vz t ∙ var vz))
@@ -575,8 +575,12 @@ data _≈_ : Term□ Γ τ → Term□ Γ τ → Set₁ where
 ------------------------------------------------------------
 -- Coherence theorem
 
--- Now we want to prove a theorem like this:
--- thm : {Γ : Ctx} {r : Raw (size Γ)} {t₁ t₂ : Term Γ τ}
---   → (raw t₁ ≡ r) → (raw t₂ ≡ r) → elaborate t₁ ≅ elaborate t₂
---
--- where ≅ is equivalence up to β, η, and Applicative laws.
+coherence :
+  (r : Raw n) {Γ : Ctx n} (s t : Term Γ τ)
+  → (raw s ≡ r) → (raw t ≡ r) → elaborate s ≈ elaborate t
+coherence (var x) (sub σ<:τ s) (sub σ₁<:τ t) s≡r t≡r = {!!}
+coherence (var x) (sub σ<:τ s) (var x₁) s≡r t≡r = {!!}
+coherence (var x) (var y) (sub σ<:τ t) s≡r t≡r = {!!}
+coherence (var x) (var y) (var z) refl t≡r = {!!}
+coherence (ƛ r) s t s≡r t≡r = {!!}
+coherence (r ∙ r₁) s t s≡r t≡r = {!!}
