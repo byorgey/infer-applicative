@@ -466,12 +466,18 @@ data Raw (n : ℕ) : Set where
   ƛ : Raw (suc n) → Raw n
   _∙_ : Raw n → Raw n → Raw n
 
+↑_ : Raw n → Raw (suc n)
+↑ var x = var (Fin.suc x)
+↑ ƛ r = {!!}   -- Oh, obviously in this case we need to generalize to
+               -- be able to shift above a certain number etc.
+↑ (r₁ ∙ r₂) = {!!}
+
 -- See punchOut, punchIn, pinch in Data.Fin.Base?
 
-_-ᵣ_ : Raw (suc n) → Fin (suc n) → Raw n
-var y -ᵣ x = var {!!}
-ƛ r -ᵣ x = ƛ (r -ᵣ vs x)
-(r₁ ∙ r₂) -ᵣ x = (r₁ -ᵣ x) ∙ (r₂ -ᵣ x)
+-- _-ᵣ_ : Raw (suc n) → Fin (suc n) → Raw n
+-- var y -ᵣ x = var {!!}
+-- ƛ r -ᵣ x = ƛ (r -ᵣ {!!})
+-- (r₁ ∙ r₂) -ᵣ x = (r₁ -ᵣ x) ∙ (r₂ -ᵣ x)
 
 -- wkr : {Γ : Ctx (suc n)} → (x : Var Γ σ) → Raw n → Raw (suc n)
 -- wkr x (var y) = var {!wkv x y!}
@@ -504,8 +510,12 @@ data _⊢_∈_ : Ctx n → Raw n → Ty b → Set₁ where
   ap :  Γ ⊢ r ∈ □ (σ ⇒ τ) → Γ ⊢ r ∈ □ σ ⇒ □ τ
   -- con : (c : C) →  Γ (Cty c)
 
+-- Instead of weakening in general, can't we just get away with shifting
+-- = insert new 0?
+
 -- Weakening for terms.  Needed for arr case of coercion insertion.
-wk : (x : Var Γ σ) → (Γ - x) ⊢ (r -ᵣ x) ∈ τ → Γ ⊢ r ∈ τ
+wk : Γ ⊢ r ∈ τ → (Γ , σ) ⊢ ↑ r ∈ τ
+-- wk : (x : Var Γ σ) → (Γ - x) ⊢ (r -ᵣ var2fin x) ∈ τ → Γ ⊢ r ∈ τ
 -- wk x (var y) = {!var (wkv x y)!}
 -- wk x (ƛ t) = {!!}
 -- wk x (t₁ ∙ t₂) = wk x t₁ ∙ wk x t₂
