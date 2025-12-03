@@ -123,7 +123,7 @@
 
 \title{Idiomatic Inference for DSLs}
 \date{\thevenue \\ \thedate}
-\author{Brent Yorgey}
+\author{Brent Yorgey \\ Hendrix College}
 % \titlegraphic{\includegraphics[width=1in]{tree}}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -264,7 +264,7 @@ overlay
 
 \begin{xframe}{Example: |W|}
   \begin{center}
-    |type W a = Coords -> a| \\
+    |type W a = (Int, Int) -> a| \\
     |pure : a -> W a = const| \\
     |ap : W (a -> b) -> W a -> W b = \f x c -> f c (x c)|
   \end{center}

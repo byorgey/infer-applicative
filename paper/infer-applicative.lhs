@@ -434,9 +434,6 @@ XXX we know if |s <: t| then they have the same shape.
   For any types |s| and |t|, we can effectively decide whether |s <: t|.
 \end{thm}
 
-
-
-
 % The ``\verb|figure|'' environment should be used for figures. One or
 % more images can be placed within a figure. If your figure contains
 % third-party material, you must clearly identify it as such, as shown
