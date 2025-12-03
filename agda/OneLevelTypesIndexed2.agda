@@ -453,12 +453,20 @@ wkv vz y = vs y
 wkv (vs x) vz = vz
 wkv (vs x) (vs y) = vs (wkv x y)
 
+var2fin : {Γ : Ctx n} → Var Γ τ → Fin n
+var2fin vz = Fin.zero
+var2fin (vs x) = Fin.suc (var2fin x)
+
+var2fin-inj : (x y : Var Γ τ) → var2fin x ≡ var2fin y → x ≡ y
+var2fin-inj vz vz _ = refl
+var2fin-inj (vs x) (vs y) eq = cong vs (var2fin-inj x y (suc-injective eq))
+
 data Raw (n : ℕ) : Set where
   var : Fin n → Raw n
   ƛ : Raw (suc n) → Raw n
   _∙_ : Raw n → Raw n → Raw n
 
-_-ᵣ_ : {Γ : Ctx (suc n)} → (r : Raw (suc n)) → Var Γ σ → Raw n
+_-ᵣ_ : Raw (suc n) → Fin (suc n) → Raw n
 var y -ᵣ x = var {!!}
 ƛ r -ᵣ x = ƛ (r -ᵣ vs x)
 (r₁ ∙ r₂) -ᵣ x = (r₁ -ᵣ x) ∙ (r₂ -ᵣ x)
@@ -470,14 +478,6 @@ var y -ᵣ x = var {!!}
 
 variable
   r r₁ r₂ : Raw n
-
-var2fin : {Γ : Ctx n} → Var Γ τ → Fin n
-var2fin vz = Fin.zero
-var2fin (vs x) = Fin.suc (var2fin x)
-
-var2fin-inj : (x y : Var Γ τ) → var2fin x ≡ var2fin y → x ≡ y
-var2fin-inj vz vz _ = refl
-var2fin-inj (vs x) (vs y) eq = cong vs (var2fin-inj x y (suc-injective eq))
 
 -- Typing judgments for raw terms in system with subtyping
 data _⊢<:_∈_ : Ctx n → Raw n → Ty b → Set₁ where
