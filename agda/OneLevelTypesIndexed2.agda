@@ -466,6 +466,8 @@ data Raw (n : ℕ) : Set where
   ƛ : Raw (suc n) → Raw n
   _∙_ : Raw n → Raw n → Raw n
 
+-- See punchOut, punchIn, pinch in Data.Fin.Base?
+
 _-ᵣ_ : Raw (suc n) → Fin (suc n) → Raw n
 var y -ᵣ x = var {!!}
 ƛ r -ᵣ x = ƛ (r -ᵣ vs x)
