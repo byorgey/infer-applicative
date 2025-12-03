@@ -458,63 +458,75 @@ data Raw (n : ℕ) : Set where
   ƛ : Raw (suc n) → Raw n
   _∙_ : Raw n → Raw n → Raw n
 
+_-ᵣ_ : {Γ : Ctx (suc n)} → (r : Raw (suc n)) → Var Γ σ → Raw n
+var y -ᵣ x = var {!!}
+ƛ r -ᵣ x = ƛ (r -ᵣ vs x)
+(r₁ ∙ r₂) -ᵣ x = (r₁ -ᵣ x) ∙ (r₂ -ᵣ x)
+
+-- wkr : {Γ : Ctx (suc n)} → (x : Var Γ σ) → Raw n → Raw (suc n)
+-- wkr x (var y) = var {!wkv x y!}
+-- wkr x (ƛ r) = ƛ (wkr {!vs x!} r)
+-- wkr x (r₁ ∙ r₂) = wkr x r₁ ∙ wkr x r₂
+
 variable
-  r : Raw n
+  r r₁ r₂ : Raw n
 
-rawVar : {Γ : Ctx n} → Var Γ τ → Fin n
-rawVar vz = Fin.zero
-rawVar (vs x) = Fin.suc (rawVar x)
+var2fin : {Γ : Ctx n} → Var Γ τ → Fin n
+var2fin vz = Fin.zero
+var2fin (vs x) = Fin.suc (var2fin x)
 
-rawVar-inj : (x y : Var Γ τ) → rawVar x ≡ rawVar y → x ≡ y
-rawVar-inj vz vz _ = refl
-rawVar-inj (vs x) (vs y) eq = cong vs (rawVar-inj x y (suc-injective eq))
+var2fin-inj : (x y : Var Γ τ) → var2fin x ≡ var2fin y → x ≡ y
+var2fin-inj vz vz _ = refl
+var2fin-inj (vs x) (vs y) eq = cong vs (var2fin-inj x y (suc-injective eq))
 
-data Term : (Γ : Ctx n) → Ty b → Set₁ where
-  sub : σ <: τ → Term Γ σ → Term Γ τ
-  var : (x : Var Γ τ) → Term Γ τ
-  ƛ : Term (Γ , σ) τ → Term Γ (σ ⇒ τ)
-  _∙_ : Term Γ (σ ⇒ τ) → Term Γ σ → Term Γ τ
+-- Typing judgments for raw terms in system with subtyping
+data _⊢<:_∈_ : Ctx n → Raw n → Ty b → Set₁ where
+  sub : σ <: τ → Γ ⊢<: r ∈ σ → Γ ⊢<: r ∈ τ
+  var : (x : Var Γ τ) → Γ ⊢<: var (var2fin x) ∈ τ
+  ƛ : (Γ , σ) ⊢<: r ∈ τ → Γ ⊢<: ƛ r ∈ (σ ⇒ τ)
+  _∙_ : Γ ⊢<: r₁ ∈ (σ ⇒ τ) → Γ ⊢<: r₂ ∈ σ → Γ ⊢<: r₁ ∙ r₂ ∈ τ
 
-raw : {Γ : Ctx n} → Term Γ τ → Raw n
-raw (sub _ t) = raw t
-raw (var x) = var (rawVar x)
-raw (ƛ t) = ƛ (raw t)
-raw (t₁ ∙ t₂) = raw t₁ ∙ raw t₂
+-- raw : {Γ : Ctx n} → Term Γ τ → Raw n
+-- raw (sub _ t) = raw t
+-- raw (var x) = var (var2fin x)
+-- raw (ƛ t) = ƛ (raw t)
+-- raw (t₁ ∙ t₂) = raw t₁ ∙ raw t₂
 
--- Type-indexed terms extended with extra `pure` and `ap` constants
-data Term□ : (Γ : Ctx n) → Ty b → Set₁ where
-  var : (x : Var Γ τ) → Term□ Γ τ
-  ƛ : Term□ (Γ , σ) τ → Term□ Γ (σ ⇒ τ)
-  _∙_ : Term□ Γ (σ ⇒ τ) → Term□ Γ σ → Term□ Γ τ
-  pure : Term□ Γ τ → Term□ Γ (□ τ)
-  ap : Term□ Γ (□ (σ ⇒ τ)) → Term□ Γ (□ σ ⇒ □ τ)
-  -- con : (c : C) → Term□ Γ (Cty c)
+-- Typing judgments for raw terms in system without subtyping, but
+-- with extra pure and ap rules
+data _⊢_∈_ : Ctx n → Raw n → Ty b → Set₁ where
+  var : (x : Var Γ τ) → Γ ⊢ var (var2fin x) ∈ τ
+  ƛ : (Γ , σ) ⊢ r ∈ τ → Γ ⊢ ƛ r ∈ (σ ⇒ τ)
+  _∙_ : Γ ⊢ r₁ ∈ (σ ⇒ τ) →  Γ ⊢ r₂ ∈ σ →  Γ ⊢ r₁ ∙ r₂ ∈ τ
+  pure :  Γ ⊢ r ∈ τ → Γ ⊢ r ∈ □ τ
+  ap :  Γ ⊢ r ∈ □ (σ ⇒ τ) → Γ ⊢ r ∈ □ σ ⇒ □ τ
+  -- con : (c : C) →  Γ (Cty c)
 
 -- Weakening for terms.  Needed for arr case of coercion insertion.
-wk : (x : Var Γ σ) → Term□ (Γ - x) τ → Term□ Γ τ
-wk x (var y) = var (wkv x y)
-wk x (ƛ t) = ƛ (wk (vs x) t)
-wk x (t₁ ∙ t₂) = wk x t₁ ∙ wk x t₂
--- wk _ (con c) = con c
-wk x (pure t) = pure (wk x t)
-wk x (ap t) = ap (wk x t)
+wk : (x : Var Γ σ) → (Γ - x) ⊢ (r -ᵣ x) ∈ τ → Γ ⊢ r ∈ τ
+-- wk x (var y) = {!var (wkv x y)!}
+-- wk x (ƛ t) = {!!}
+-- wk x (t₁ ∙ t₂) = wk x t₁ ∙ wk x t₂
+-- -- wk _ (con c) = con c
+-- wk x (pure t) = pure (wk x t)
+-- wk x (ap t) = ap (wk x t)
 
 -- Coercion insertion
 
 infixr 5 _≪_
 
-_≪_ : σ <: τ → Term□ Γ σ → Term□ Γ τ
+_≪_ : σ <: τ → Γ ⊢ r ∈ σ → Γ ⊢ r ∈ τ
 rfl ≪ t = t
 tr σ<:τ τ<:υ ≪ t = τ<:υ ≪ σ<:τ ≪ t
 -- η-expand at function types to apply the coercions --- could optimize this part
 -- of course, especially if t is syntactically a lambda already
-arr τ₁<:σ₁ σ₂<:τ₂ ≪ t = ƛ (σ₂<:τ₂ ≪ (wk vz t ∙ (τ₁<:σ₁ ≪ var vz)))
+arr τ₁<:σ₁ σ₂<:τ₂ ≪ t = {!!} -- ƛ (σ₂<:τ₂ ≪ (wk vz t ∙ (τ₁<:σ₁ ≪ var vz)))
 -- -- essentially 'fmap coerce'
-box σ<:τ ≪ t = (ap (pure (ƛ (σ<:τ ≪ var vz)))) ∙ t
+box σ<:τ ≪ t = {!!} -- (ap (pure (ƛ (σ<:τ ≪ var vz)))) ∙ t
 pure ≪ t = pure t
 ap ≪ t = ap t
 
-elaborate : Term Γ τ → Term□ Γ τ
+elaborate : Γ ⊢<: r ∈ τ → Γ ⊢ r ∈ τ
 elaborate (sub σ<:τ t) = σ<:τ ≪ elaborate t
 elaborate (var i) = var i
 elaborate (ƛ s) = ƛ (elaborate s)
@@ -525,53 +537,47 @@ elaborate (t₁ ∙ t₂) = elaborate t₁ ∙ elaborate t₂
 -- Equivalence up to β, η, + Applicative laws
 
 variable
-  s t u : Term□ Γ τ
+  s t u : Γ ⊢ r ∈ τ
 
-compose : Term□ Γ ((τ ⇒ υ) ⇒ (σ ⇒ τ) ⇒ σ ⇒ υ)
+compose : Γ ⊢ _ ∈ ((τ ⇒ υ) ⇒ (σ ⇒ τ) ⇒ σ ⇒ υ)
 compose =  ƛ (ƛ (ƛ (var (vs (vs vz)) ∙ (var (vs vz) ∙ var vz))))
 
-id : Term□ Γ (σ ⇒ σ)
+id : Γ ⊢ _ ∈ (σ ⇒ σ)
 id = ƛ (var vz)
 
 infixl 5 _<*>_
-_<*>_ : Term□ Γ (□ (σ ⇒ τ)) → Term□ Γ (□ σ) → Term□ Γ (□ τ)
+_<*>_ : Γ ⊢ r₁ ∈ □ (σ ⇒ τ) → Γ ⊢ r₂ ∈ □ σ → Γ ⊢ r₁ ∙ r₂ ∈ □ τ
 f <*> x = ap f ∙ x
 
--- Term equivalence up to Applicative laws
-infix 4 _≈_
-data _≈_ : Term□ Γ τ → Term□ Γ τ → Set₁ where
+-- -- Term equivalence up to Applicative laws
+-- infix 4 _≈_
+-- data _≈_ : Γ ⊢ r₁ ∈ τ → Γ ⊢ r₂ ∈ τ → Set₁ where
 
-  -- Equivalence and congruence laws
-  ≈refl : s ≈ s
-  ≈trans : s ≈ t → t ≈ u → s ≈ u
-  ≈sym : s ≈ t → t ≈ s
-  ≈cong : {Γ₁ Γ₂ : Ctx n} {s t : Term□ Γ₁ σ} → (f : Term□ Γ₁ σ → Term□ Γ₂ τ) → s ≈ t → f s ≈ f t
+--   -- Equivalence and congruence laws
+--   ≈refl : s ≈ s
+--   ≈trans : s ≈ t → t ≈ u → s ≈ u
+--   ≈sym : s ≈ t → t ≈ s
+--   -- ≈cong : {Γ₁ Γ₂ : Ctx n} {s : Γ₁ ⊢ r₁ ∈ σ} {t : Γ₁ ⊢ r₂ ∈ σ} → (f : Term□ Γ₁ σ → Term□ Γ₂ τ) → s ≈ t → f s ≈ f t
 
-  -- η-equivalence
-  η : {t : Term□ Γ (σ ⇒ τ)} → t ≈ (ƛ (wk vz t ∙ var vz))
+--   -- η-equivalence
+--   η : {t : Γ ⊢ r ∈ (σ ⇒ τ)} → t ≈ (ƛ (wk vz t ∙ var vz))
 
-  -- Applicative laws
+--   -- Applicative laws
 
-  -- pure id <*> v = v                            -- Identity
-  idt : (pure id) <*> s ≈ s
+--   -- pure id <*> v = v                            -- Identity
+--   idt : (pure id) <*> s ≈ s
 
-  -- pure f <*> pure x = pure (f x)               -- Homomorphism
-  hom : (pure s) <*> (pure t) ≈ pure (s ∙ t)
+--   -- pure f <*> pure x = pure (f x)               -- Homomorphism
+--   hom : (pure s) <*> (pure t) ≈ pure (s ∙ t)
 
-  -- u <*> pure y = pure ($ y) <*> u              -- Interchange
-  int : s <*> pure t ≈ (pure (ƛ (var vz ∙ wk vz t))) <*> s
+--   -- u <*> pure y = pure ($ y) <*> u              -- Interchange
+--   int : s <*> pure t ≈ (pure (ƛ (var vz ∙ wk vz t))) <*> s
 
-  -- pure (.) <*> u <*> v <*> w = u <*> (v <*> w) -- Composition
-  pur : pure compose <*> s <*> t <*> u ≈ s <*> (t <*> u)
+--   -- pure (.) <*> u <*> v <*> w = u <*> (v <*> w) -- Composition
+--   pur : pure compose <*> s <*> t <*> u ≈ s <*> (t <*> u)
 
-------------------------------------------------------------
--- Coherence theorem
+-- ------------------------------------------------------------
+-- -- Coherence theorem
 
-coherence :
-  (r : Raw n) {Γ : Ctx n} (s t : Term Γ τ)
-  → (raw s ≡ r) → (raw t ≡ r) → elaborate s ≈ elaborate t
-coherence (var x) (sub σ<:τ s) t s≡r t≡r = {!!}
-coherence (var x) (var y) (sub σ<:τ t) s≡r t≡r = {!!}
-coherence (var x) (var y) (var z) refl t≡r = {!!}
-coherence (ƛ r) s t s≡r t≡r = {!!}
-coherence (r₁ ∙ r₂) s t s≡r t≡r = {!!}
+-- -- coherence : (s t : Γ ⊢ r ∈ τ) → elaborate s ≈ elaborate t
+-- -- coherence s t = ?
