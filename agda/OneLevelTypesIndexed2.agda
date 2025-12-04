@@ -488,6 +488,34 @@ data _⊢<:_∈_ : Ctx n → Raw n → Ty b → Set₁ where
   ƛ : (Γ , σ) ⊢<: r ∈ τ → Γ ⊢<: ƛ r ∈ (σ ⇒ τ)
   _∙_ : Γ ⊢<: r₁ ∈ (σ ⇒ τ) → Γ ⊢<: r₂ ∈ σ → Γ ⊢<: r₁ ∙ r₂ ∈ τ
 
+-- XXX Perhaps make another version that only does subtyping in
+-- certain specific spots e.g. at function applications, and prove
+-- that it is equivalent?
+
+data _⊢<:′_∈_ : Ctx n → Raw n → Ty b → Set₁ where
+  var : (x : Var Γ σ) → (σ <: τ) → Γ ⊢<:′ var (var2fin x) ∈ τ
+  ƛ : (Γ , σ) ⊢<:′ r ∈ τ → Γ ⊢<:′ ƛ r ∈ (σ ⇒ τ)
+  app : Γ ⊢<:′ r₁ ∈ (σ₁ ⇒ τ) → Γ ⊢<:′ r₂ ∈ σ₂ → (σ₂ <: σ₁) → Γ ⊢<:′ r₁ ∙ r₂ ∈ τ
+
+-- This direction is easy
+foo : Γ ⊢<:′ r ∈ τ → Γ ⊢<: r ∈ τ
+foo (var x σ<:τ) = sub σ<:τ (var x)
+foo (ƛ d) = ƛ (foo d)
+foo (app d₁ d₂ s) = foo d₁ ∙ sub s (foo d₂)
+
+-- Other direction is tricky
+help : σ <: τ → Γ ⊢<: r ∈ σ → Γ ⊢<:′ r ∈ τ
+help σ<:τ (sub σ₁<:σ d) = help (tr σ₁<:σ σ<:τ) d
+help σ<:τ (var x) = var x σ<:τ
+help σ<:τ (ƛ d) = {!!}
+help σ<:τ (d₁ ∙ d₂) = {!!}
+
+bar : Γ ⊢<: r ∈ τ → Γ ⊢<:′ r ∈ τ
+bar (sub σ<:τ d) = help σ<:τ d
+bar (var x) = var x rfl
+bar (ƛ d) = ƛ (bar d)
+bar (d₁ ∙ d₂) = app (bar d₁) (bar d₂) rfl
+
 -- Typing judgments for raw terms in system without subtyping, but
 -- with extra pure and ap rules
 data _⊢_∈_ : Ctx n → Raw n → Ty b → Set₁ where
@@ -615,9 +643,9 @@ data _≈_ : Term Γ τ → Term Γ τ → Set₁ where
 -- subtyping will elaborate to equivalent terms.
 
 coherence : (s t : Γ ⊢<: r ∈ τ) → elaborate s ≈ elaborate t
-coherence (sub x s) t = {!!}
+coherence (sub σ<:τ s) t = {!!}
 coherence (var x) t = {!t!}
 coherence (ƛ s) (sub x t) = {!!}
 coherence (ƛ s) (ƛ t) = ≈cong ƛ′ (coherence s t)
 coherence (s₁ ∙ s₂) (sub x t) = {!!}
-coherence (s₁ ∙ s₂) (t₁ ∙ t₂) = ≈cong₂ {!_∙′_!} {!coherence s₁ t₁!} {!!}
+coherence (s₁ ∙ s₂) (t₁ ∙ t₂) = {!!}
