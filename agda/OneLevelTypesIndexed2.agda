@@ -504,13 +504,25 @@ foo (ƛ d) = ƛ (foo d)
 foo (app d₁ d₂ s) = foo d₁ ∙ sub s (foo d₂)
 
 -- Other direction is tricky
+help₂ : σ ◃ τ → Γ ⊢<: r ∈ σ → Γ ⊢<:′ r ∈ τ
 help : σ <: τ → Γ ⊢<: r ∈ σ → Γ ⊢<:′ r ∈ τ
-help σ<:τ (sub σ₁<:σ d) = help (tr σ₁<:σ σ<:τ) d
-help σ<:τ (var x) = var x σ<:τ
-help σ<:τ (ƛ d) = {!!}
-help σ<:τ (d₁ ∙ d₂) = {!!}
-
 bar : Γ ⊢<: r ∈ τ → Γ ⊢<:′ r ∈ τ
+
+help₂ σ◃τ (sub τ<:υ t) = help₂ (◃-trans (<:→◃ τ<:υ) σ◃τ) t
+help₂ σ◃τ (var x) = var x (◃→<: σ◃τ)
+help₂ rfl (ƛ t) = bar (ƛ t)
+help₂ (arr σ◃τ σ◃τ₁) (ƛ t) = {!!}
+help₂ (pure σ◃τ) (ƛ t) = {!!}
+help₂ (ap□ σ◃τ σ◃τ₁) (ƛ t) = {!!}
+help₂ σ◃τ (t₁ ∙ t₂) = app (help₂ (arr rfl σ◃τ) t₁) (bar t₂) rfl
+
+help σ<:τ = help₂ (<:→◃ σ<:τ)
+
+-- help σ<:τ (sub σ₁<:σ d) = help (tr σ₁<:σ σ<:τ) d
+-- help σ<:τ (var x) = var x σ<:τ
+-- help σ<:τ (ƛ d) = {!!}
+-- help σ<:τ (d₁ ∙ d₂) = {!!}
+
 bar (sub σ<:τ d) = help σ<:τ d
 bar (var x) = var x rfl
 bar (ƛ d) = ƛ (bar d)
