@@ -1,6 +1,6 @@
 open import Data.Bool
 open import Data.Nat
-open import Data.Fin using (Fin ; inject₁)
+open import Data.Fin using (Fin ; punchIn)
 open import Data.Fin.Properties using (suc-injective)
 open import Data.Empty
 open import Data.Product using (Σ-syntax ; Σ ; _×_ ; _,_ ; -,_ ; proj₁ ; proj₂ )
@@ -425,6 +425,25 @@ lem₁ (¬P , ¬Q) (inj₂ Q) = ¬Q Q
 -- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl | yes σ₂◃τ₂ | no ¬τ₁◃σ₁ = no (contraposition ⇒-invˡ (lem₁ (¬τ₁◃σ₁ , λ {()})))
 
 ------------------------------------------------------------
+-- Raw, untyped terms
+------------------------------------------------------------
+
+-- Raw, untyped terms.
+data Raw (n : ℕ) : Set where
+  var : Fin n → Raw n
+  ƛ : Raw (suc n) → Raw n
+  _∙_ : Raw n → Raw n → Raw n
+
+-- Shift.
+_↑_ : Fin (suc n) → Raw n → Raw (suc n)
+i ↑ var x = var (punchIn i x)
+i ↑ ƛ r = ƛ (Fin.suc i ↑ r)
+i ↑ (r₁ ∙ r₂) = (i ↑ r₁) ∙ (i ↑ r₂)
+
+variable
+  r r₁ r₂ : Raw n
+
+------------------------------------------------------------
 -- Typing + coercion elaboration
 ------------------------------------------------------------
 
@@ -435,9 +454,9 @@ data Ctx : ℕ → Set where
 infixr 4 _,_
 
 variable
-  Γ : Ctx n
+  Γ Γ₁ Γ₂ : Ctx n
 
--- Approach to variables + weakening taken from
+-- Approach to variables + weakening adapted from
 -- Keller + Alternkirch, "Normalization by hereditary substitutions"
 -- https://www.cs.nott.ac.uk/~psztxa/publ/msfp10.pdf
 data Var : Ctx n → Ty b → Set₁ where
@@ -457,35 +476,10 @@ var2fin : {Γ : Ctx n} → Var Γ τ → Fin n
 var2fin vz = Fin.zero
 var2fin (vs x) = Fin.suc (var2fin x)
 
-var2fin-inj : (x y : Var Γ τ) → var2fin x ≡ var2fin y → x ≡ y
-var2fin-inj vz vz _ = refl
-var2fin-inj (vs x) (vs y) eq = cong vs (var2fin-inj x y (suc-injective eq))
-
-data Raw (n : ℕ) : Set where
-  var : Fin n → Raw n
-  ƛ : Raw (suc n) → Raw n
-  _∙_ : Raw n → Raw n → Raw n
-
-↑_ : Raw n → Raw (suc n)
-↑ var x = var (Fin.suc x)
-↑ ƛ r = {!!}   -- Oh, obviously in this case we need to generalize to
-               -- be able to shift above a certain number etc.
-↑ (r₁ ∙ r₂) = {!!}
-
--- See punchOut, punchIn, pinch in Data.Fin.Base?
-
--- _-ᵣ_ : Raw (suc n) → Fin (suc n) → Raw n
--- var y -ᵣ x = var {!!}
--- ƛ r -ᵣ x = ƛ (r -ᵣ {!!})
--- (r₁ ∙ r₂) -ᵣ x = (r₁ -ᵣ x) ∙ (r₂ -ᵣ x)
-
--- wkr : {Γ : Ctx (suc n)} → (x : Var Γ σ) → Raw n → Raw (suc n)
--- wkr x (var y) = var {!wkv x y!}
--- wkr x (ƛ r) = ƛ (wkr {!vs x!} r)
--- wkr x (r₁ ∙ r₂) = wkr x r₁ ∙ wkr x r₂
-
-variable
-  r r₁ r₂ : Raw n
+var2fin-wkv : (x : Var Γ σ) → (y : Var (Γ - x) τ) → var2fin (wkv x y) ≡ punchIn (var2fin x) (var2fin y)
+var2fin-wkv vz y = refl
+var2fin-wkv (vs x) vz = refl
+var2fin-wkv (vs x) (vs y) = cong Fin.suc (var2fin-wkv x y)
 
 -- Typing judgments for raw terms in system with subtyping
 data _⊢<:_∈_ : Ctx n → Raw n → Ty b → Set₁ where
@@ -493,12 +487,6 @@ data _⊢<:_∈_ : Ctx n → Raw n → Ty b → Set₁ where
   var : (x : Var Γ τ) → Γ ⊢<: var (var2fin x) ∈ τ
   ƛ : (Γ , σ) ⊢<: r ∈ τ → Γ ⊢<: ƛ r ∈ (σ ⇒ τ)
   _∙_ : Γ ⊢<: r₁ ∈ (σ ⇒ τ) → Γ ⊢<: r₂ ∈ σ → Γ ⊢<: r₁ ∙ r₂ ∈ τ
-
--- raw : {Γ : Ctx n} → Term Γ τ → Raw n
--- raw (sub _ t) = raw t
--- raw (var x) = var (var2fin x)
--- raw (ƛ t) = ƛ (raw t)
--- raw (t₁ ∙ t₂) = raw t₁ ∙ raw t₂
 
 -- Typing judgments for raw terms in system without subtyping, but
 -- with extra pure and ap rules
@@ -508,88 +496,128 @@ data _⊢_∈_ : Ctx n → Raw n → Ty b → Set₁ where
   _∙_ : Γ ⊢ r₁ ∈ (σ ⇒ τ) →  Γ ⊢ r₂ ∈ σ →  Γ ⊢ r₁ ∙ r₂ ∈ τ
   pure :  Γ ⊢ r ∈ τ → Γ ⊢ r ∈ □ τ
   ap :  Γ ⊢ r ∈ □ (σ ⇒ τ) → Γ ⊢ r ∈ □ σ ⇒ □ τ
-  -- con : (c : C) →  Γ (Cty c)
-
--- Instead of weakening in general, can't we just get away with shifting
--- = insert new 0?
 
 -- Weakening for terms.  Needed for arr case of coercion insertion.
-wk : Γ ⊢ r ∈ τ → (Γ , σ) ⊢ ↑ r ∈ τ
--- wk : (x : Var Γ σ) → (Γ - x) ⊢ (r -ᵣ var2fin x) ∈ τ → Γ ⊢ r ∈ τ
--- wk x (var y) = {!var (wkv x y)!}
--- wk x (ƛ t) = {!!}
--- wk x (t₁ ∙ t₂) = wk x t₁ ∙ wk x t₂
--- -- wk _ (con c) = con c
--- wk x (pure t) = pure (wk x t)
--- wk x (ap t) = ap (wk x t)
+wk : {Γ : Ctx (suc n)} (x : Var Γ σ) → (Γ - x) ⊢ r ∈ τ → Γ ⊢ (var2fin x ↑ r) ∈ τ
+wk x (var y) rewrite sym (var2fin-wkv x y) = var (wkv x y)
+wk x (ƛ t) = ƛ (wk (vs x) t)
+wk x (t₁ ∙ t₂) = wk x t₁ ∙ wk x t₂
+wk x (pure t) = pure (wk x t)
+wk x (ap t) = ap (wk x t)
 
--- Coercion insertion
+------------------------------------------------------------
+-- Terms
+------------------------------------------------------------
+
+-- We define typed terms, indexed by context and type, as
+-- a dependent pair of a raw term and a typing derivation.
+
+Term : Ctx n → Ty b → Set₁
+Term {n = n} Γ τ = Σ[ r ∈ Raw n ] Γ ⊢ r ∈ τ
+
+-- Smart constructors for Term
+
+var′ : Var Γ σ → Term Γ σ
+var′ x = (var (var2fin x) , var x)
+
+ƛ′ : Term (Γ , σ) τ → Term Γ (σ ⇒ τ)
+ƛ′ (r , t) = (ƛ r , ƛ t)
+
+_∙′_ : Term Γ (σ ⇒ τ) → Term Γ σ → Term Γ τ
+(r₁ , t₁) ∙′ (r₂ , t₂) = (r₁ ∙ r₂ , t₁ ∙ t₂)
+
+pure′ : Term Γ σ → Term Γ (□ σ)
+pure′ (r , t) = (r , pure t)
+
+ap′ : Term Γ (□ (σ ⇒ τ)) → Term Γ (□ σ ⇒ □ τ)
+ap′ (r , t) = (r , ap t)
+
+wk′ : (x : Var Γ σ) → Term (Γ - x) τ → Term Γ τ
+wk′ x (r , t) = (var2fin x ↑ r , wk x t)
+
+-- Similar for terms with subtyping, except we don't need constructors
+
+Term<: : Ctx n → Ty b → Set₁
+Term<: {n = n} Γ τ = Σ[ r ∈ Raw n ] Γ ⊢<: r ∈ τ
+
+------------------------------------------------------------
+-- Coercion insertion + elaboration
 
 infixr 5 _≪_
 
-_≪_ : σ <: τ → Γ ⊢ r ∈ σ → Γ ⊢ r ∈ τ
+_≪_ : σ <: τ → Term Γ σ → Term Γ τ
 rfl ≪ t = t
 tr σ<:τ τ<:υ ≪ t = τ<:υ ≪ σ<:τ ≪ t
 -- η-expand at function types to apply the coercions --- could optimize this part
 -- of course, especially if t is syntactically a lambda already
-arr τ₁<:σ₁ σ₂<:τ₂ ≪ t = {!!} -- ƛ (σ₂<:τ₂ ≪ (wk vz t ∙ (τ₁<:σ₁ ≪ var vz)))
--- -- essentially 'fmap coerce'
-box σ<:τ ≪ t = {!!} -- (ap (pure (ƛ (σ<:τ ≪ var vz)))) ∙ t
-pure ≪ t = pure t
-ap ≪ t = ap t
+arr τ₁<:σ₁ σ₂<:τ₂ ≪ t = ƛ′ (σ₂<:τ₂ ≪ (wk′ vz t ∙′ (τ₁<:σ₁ ≪ var′ vz)))
+-- -- essentially 'fmap coerce'/
+box σ<:τ ≪ t = (ap′ (pure′ (ƛ′ (σ<:τ ≪ var′ vz)))) ∙′ t
+pure ≪ t = pure′ t
+ap ≪ t = ap′ t
 
-elaborate : Γ ⊢<: r ∈ τ → Γ ⊢ r ∈ τ
+-- Elaborate derivations with subtyping into subtyping-free terms with pure + ap
+elaborate : Γ ⊢<: r ∈ τ → Term Γ τ
 elaborate (sub σ<:τ t) = σ<:τ ≪ elaborate t
-elaborate (var i) = var i
-elaborate (ƛ s) = ƛ (elaborate s)
-elaborate (t₁ ∙ t₂) = elaborate t₁ ∙ elaborate t₂
--- elaborate (con c) = con c
+elaborate (var x) = var′ x
+elaborate (ƛ t) = ƛ′ (elaborate t)
+elaborate (t₁ ∙ t₂) = elaborate t₁ ∙′ elaborate t₂
 
 ------------------------------------------------------------
 -- Equivalence up to β, η, + Applicative laws
 
 variable
-  s t u : Γ ⊢ r ∈ τ
+  s t u : Term Γ τ
 
-compose : Γ ⊢ _ ∈ ((τ ⇒ υ) ⇒ (σ ⇒ τ) ⇒ σ ⇒ υ)
-compose =  ƛ (ƛ (ƛ (var (vs (vs vz)) ∙ (var (vs vz) ∙ var vz))))
+compose : Term Γ ((τ ⇒ υ) ⇒ (σ ⇒ τ) ⇒ σ ⇒ υ)
+compose =  ƛ′ (ƛ′ (ƛ′ (var′ (vs (vs vz)) ∙′ (var′ (vs vz) ∙′ var′ vz))))
 
-id : Γ ⊢ _ ∈ (σ ⇒ σ)
-id = ƛ (var vz)
+id : Term Γ (σ ⇒ σ)
+id = ƛ′ (var′ vz)
 
 infixl 5 _<*>_
-_<*>_ : Γ ⊢ r₁ ∈ □ (σ ⇒ τ) → Γ ⊢ r₂ ∈ □ σ → Γ ⊢ r₁ ∙ r₂ ∈ □ τ
-f <*> x = ap f ∙ x
+_<*>_ : Term Γ (□ (σ ⇒ τ)) → Term Γ (□ σ) → Term Γ (□ τ)
+f <*> x = ap′ f ∙′ x
 
--- -- Term equivalence up to Applicative laws
--- infix 4 _≈_
--- data _≈_ : Γ ⊢ r₁ ∈ τ → Γ ⊢ r₂ ∈ τ → Set₁ where
+-- Term equivalence up to Applicative laws
+infix 4 _≈_
+data _≈_ : Term Γ τ → Term Γ τ → Set₁ where
 
---   -- Equivalence and congruence laws
---   ≈refl : s ≈ s
---   ≈trans : s ≈ t → t ≈ u → s ≈ u
---   ≈sym : s ≈ t → t ≈ s
---   -- ≈cong : {Γ₁ Γ₂ : Ctx n} {s : Γ₁ ⊢ r₁ ∈ σ} {t : Γ₁ ⊢ r₂ ∈ σ} → (f : Term□ Γ₁ σ → Term□ Γ₂ τ) → s ≈ t → f s ≈ f t
+  -- Equivalence and congruence laws
+  ≈refl : s ≈ s
+  ≈trans : s ≈ t → t ≈ u → s ≈ u
+  ≈sym : s ≈ t → t ≈ s
+  ≈cong : {s t : Term Γ₁ σ} → (f : Term Γ₁ σ → Term Γ₂ τ) → s ≈ t → f s ≈ f t
+  ≈cong₂ : {s t : Term Γ₁ σ₁} {u v : Term Γ₂ σ₂} → (f : Term Γ₁ σ₁ → Term Γ₂ σ₂ → Term Γ τ) → s ≈ t → u ≈ v → f s u ≈ f t v
 
---   -- η-equivalence
---   η : {t : Γ ⊢ r ∈ (σ ⇒ τ)} → t ≈ (ƛ (wk vz t ∙ var vz))
+  -- η-equivalence
+  η : t ≈ (ƛ′ (wk′ vz t ∙′ var′ vz))
 
---   -- Applicative laws
+  -- Applicative laws
 
---   -- pure id <*> v = v                            -- Identity
---   idt : (pure id) <*> s ≈ s
+  -- pure id <*> v = v                            -- Identity
+  idt : (pure′ id) <*> s ≈ s
 
---   -- pure f <*> pure x = pure (f x)               -- Homomorphism
---   hom : (pure s) <*> (pure t) ≈ pure (s ∙ t)
+  -- pure f <*> pure x = pure (f x)               -- Homomorphism
+  hom : (pure′ s) <*> (pure′ t) ≈ pure′ (s ∙′ t)
 
---   -- u <*> pure y = pure ($ y) <*> u              -- Interchange
---   int : s <*> pure t ≈ (pure (ƛ (var vz ∙ wk vz t))) <*> s
+  -- u <*> pure y = pure ($ y) <*> u              -- Interchange
+  int : s <*> pure′ t ≈ (pure′ (ƛ′ (var′ vz ∙′ wk′ vz t))) <*> s
 
---   -- pure (.) <*> u <*> v <*> w = u <*> (v <*> w) -- Composition
---   pur : pure compose <*> s <*> t <*> u ≈ s <*> (t <*> u)
+  -- pure (.) <*> u <*> v <*> w = u <*> (v <*> w) -- Composition
+  pur : pure′ compose <*> s <*> t <*> u ≈ s <*> (t <*> u)
 
--- ------------------------------------------------------------
--- -- Coherence theorem
 
--- -- coherence : (s t : Γ ⊢ r ∈ τ) → elaborate s ≈ elaborate t
--- -- coherence s t = ?
+------------------------------------------------------------
+-- Coherence theorem
+
+-- For any given raw term r, any two typing derivations for r with
+-- subtyping will elaborate to equivalent terms.
+
+coherence : (s t : Γ ⊢<: r ∈ τ) → elaborate s ≈ elaborate t
+coherence (sub x s) t = {!!}
+coherence (var x) t = {!t!}
+coherence (ƛ s) (sub x t) = {!!}
+coherence (ƛ s) (ƛ t) = ≈cong ƛ′ (coherence s t)
+coherence (s₁ ∙ s₂) (sub x t) = {!!}
+coherence (s₁ ∙ s₂) (t₁ ∙ t₂) = ≈cong₂ {!_∙′_!} {!coherence s₁ t₁!} {!!}
