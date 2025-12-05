@@ -482,51 +482,55 @@ var2fin-wkv (vs x) vz = refl
 var2fin-wkv (vs x) (vs y) = cong Fin.suc (var2fin-wkv x y)
 
 -- Typing judgments for raw terms in system with subtyping
-data _⊢<:_∈_ : Ctx n → Raw n → Ty b → Set₁ where
-  sub : σ <: τ → Γ ⊢<: r ∈ σ → Γ ⊢<: r ∈ τ
-  var : (x : Var Γ τ) → Γ ⊢<: var (var2fin x) ∈ τ
-  ƛ : (Γ , σ) ⊢<: r ∈ τ → Γ ⊢<: ƛ r ∈ (σ ⇒ τ)
-  _∙_ : Γ ⊢<: r₁ ∈ (σ ⇒ τ) → Γ ⊢<: r₂ ∈ σ → Γ ⊢<: r₁ ∙ r₂ ∈ τ
+data _⊢ₛ_∈_ : Ctx n → Raw n → Ty b → Set₁ where
+  sub : σ <: τ → Γ ⊢ₛ r ∈ σ → Γ ⊢ₛ r ∈ τ
+  var : (x : Var Γ τ) → Γ ⊢ₛ var (var2fin x) ∈ τ
+  ƛ : (Γ , σ) ⊢ₛ r ∈ τ → Γ ⊢ₛ ƛ r ∈ (σ ⇒ τ)
+  _∙_ : Γ ⊢ₛ r₁ ∈ (σ ⇒ τ) → Γ ⊢ₛ r₂ ∈ σ → Γ ⊢ₛ r₁ ∙ r₂ ∈ τ
 
 -- XXX Perhaps make another version that only does subtyping in
--- certain specific spots e.g. at function applications, and prove
--- that it is equivalent?
+-- certain specific spots e.g. at function applications + variable
+-- lookups, and prove that it is equivalent?
+--
+-- Well, this version is NOT equivalent, because of e.g. being able to
+-- apply subtyping to the output of a lambda.  Do we add subtyping to
+-- the lambda rule as well?  Will I really need this?
 
-data _⊢<:′_∈_ : Ctx n → Raw n → Ty b → Set₁ where
-  var : (x : Var Γ σ) → (σ <: τ) → Γ ⊢<:′ var (var2fin x) ∈ τ
-  ƛ : (Γ , σ) ⊢<:′ r ∈ τ → Γ ⊢<:′ ƛ r ∈ (σ ⇒ τ)
-  app : Γ ⊢<:′ r₁ ∈ (σ₁ ⇒ τ) → Γ ⊢<:′ r₂ ∈ σ₂ → (σ₂ <: σ₁) → Γ ⊢<:′ r₁ ∙ r₂ ∈ τ
+data _⊢ₛ′_∈_ : Ctx n → Raw n → Ty b → Set₁ where
+  var : (x : Var Γ σ) → (σ <: τ) → Γ ⊢ₛ′ var (var2fin x) ∈ τ
+  ƛ : (Γ , σ) ⊢ₛ′ r ∈ τ → Γ ⊢ₛ′ ƛ r ∈ (σ ⇒ τ)
+  app : Γ ⊢ₛ′ r₁ ∈ (σ₁ ⇒ τ) → Γ ⊢ₛ′ r₂ ∈ σ₂ → (σ₂ <: σ₁) → Γ ⊢ₛ′ r₁ ∙ r₂ ∈ τ
 
 -- This direction is easy
-foo : Γ ⊢<:′ r ∈ τ → Γ ⊢<: r ∈ τ
-foo (var x σ<:τ) = sub σ<:τ (var x)
-foo (ƛ d) = ƛ (foo d)
-foo (app d₁ d₂ s) = foo d₁ ∙ sub s (foo d₂)
+s′→s : Γ ⊢ₛ′ r ∈ τ → Γ ⊢ₛ r ∈ τ
+s′→s (var x σ<:τ) = sub σ<:τ (var x)
+s′→s (ƛ d) = ƛ (s′→s d)
+s′→s (app d₁ d₂ s) = s′→s d₁ ∙ sub s (s′→s d₂)
 
 -- Other direction is tricky
-help₂ : σ ◃ τ → Γ ⊢<: r ∈ σ → Γ ⊢<:′ r ∈ τ
-help : σ <: τ → Γ ⊢<: r ∈ σ → Γ ⊢<:′ r ∈ τ
-bar : Γ ⊢<: r ∈ τ → Γ ⊢<:′ r ∈ τ
+help₃ : σ₂ ◃ σ₁ → (Γ , σ₁) ⊢ₛ′ r ∈ τ → (Γ , σ₂) ⊢ₛ′ r ∈ τ
+◃-s′ : σ ◃ τ → Γ ⊢ₛ′ r ∈ σ → Γ ⊢ₛ′ r ∈ τ
+<:-s′ : σ <: τ → Γ ⊢ₛ′ r ∈ σ → Γ ⊢ₛ′ r ∈ τ
+s→s′ : Γ ⊢ₛ r ∈ τ → Γ ⊢ₛ′ r ∈ τ
 
-help₂ σ◃τ (sub τ<:υ t) = help₂ (◃-trans (<:→◃ τ<:υ) σ◃τ) t
-help₂ σ◃τ (var x) = var x (◃→<: σ◃τ)
-help₂ rfl (ƛ t) = bar (ƛ t)
-help₂ (arr σ◃τ σ◃τ₁) (ƛ t) = {!!}
-help₂ (pure σ◃τ) (ƛ t) = {!!}
-help₂ (ap□ σ◃τ σ◃τ₁) (ƛ t) = {!!}
-help₂ σ◃τ (t₁ ∙ t₂) = app (help₂ (arr rfl σ◃τ) t₁) (bar t₂) rfl
+help₃ σ₂◃σ₁ (var vz σ<:τ) = var vz (tr (◃→<: σ₂◃σ₁) σ<:τ)
+help₃ σ₂◃σ₁ (var (vs x) σ<:τ) = var (vs x) σ<:τ
+help₃ σ₂◃σ₁ (ƛ t) = ƛ {!!} -- stuck!
+help₃ σ₂◃σ₁ (app t₁ t₂ σ₄<:σ₃) = app (help₃ σ₂◃σ₁ t₁) (help₃ σ₂◃σ₁ t₂) σ₄<:σ₃
 
-help σ<:τ = help₂ (<:→◃ σ<:τ)
+◃-s′ σ◃τ (var x s) = var x (tr s (◃→<: σ◃τ))
+◃-s′ rfl (ƛ t) = (ƛ t)
+◃-s′ (arr τ₁◃σ₁ σ₂◃τ₂) (ƛ t) = ƛ (help₃ τ₁◃σ₁ (◃-s′ σ₂◃τ₂ t))
+◃-s′ (pure σ⇒τ₁◃τ) (ƛ t) = {!pure!}
+◃-s′ (ap□ σ◃τ σ◃τ₁) (ƛ t) = {!!}
+◃-s′ σ◃τ (app t₁ t₂ s) = app (◃-s′ (arr rfl σ◃τ) t₁) t₂ s
 
--- help σ<:τ (sub σ₁<:σ d) = help (tr σ₁<:σ σ<:τ) d
--- help σ<:τ (var x) = var x σ<:τ
--- help σ<:τ (ƛ d) = {!!}
--- help σ<:τ (d₁ ∙ d₂) = {!!}
+<:-s′ σ<:τ = ◃-s′ (<:→◃ σ<:τ)
 
-bar (sub σ<:τ d) = help σ<:τ d
-bar (var x) = var x rfl
-bar (ƛ d) = ƛ (bar d)
-bar (d₁ ∙ d₂) = app (bar d₁) (bar d₂) rfl
+s→s′ (sub σ<:τ d) = <:-s′ σ<:τ (s→s′ d)
+s→s′ (var x) = var x rfl
+s→s′ (ƛ d) = ƛ (s→s′ d)
+s→s′ (d₁ ∙ d₂) = app (s→s′ d₁) (s→s′ d₂) rfl
 
 -- Typing judgments for raw terms in system without subtyping, but
 -- with extra pure and ap rules
@@ -578,7 +582,7 @@ wk′ x (r , t) = (var2fin x ↑ r , wk x t)
 -- Similar for terms with subtyping, except we don't need constructors
 
 Term<: : Ctx n → Ty b → Set₁
-Term<: {n = n} Γ τ = Σ[ r ∈ Raw n ] Γ ⊢<: r ∈ τ
+Term<: {n = n} Γ τ = Σ[ r ∈ Raw n ] Γ ⊢ₛ r ∈ τ
 
 ------------------------------------------------------------
 -- Coercion insertion + elaboration
@@ -597,7 +601,7 @@ pure ≪ t = pure′ t
 ap ≪ t = ap′ t
 
 -- Elaborate derivations with subtyping into subtyping-free terms with pure + ap
-elaborate : Γ ⊢<: r ∈ τ → Term Γ τ
+elaborate : Γ ⊢ₛ r ∈ τ → Term Γ τ
 elaborate (sub σ<:τ t) = σ<:τ ≪ elaborate t
 elaborate (var x) = var′ x
 elaborate (ƛ t) = ƛ′ (elaborate t)
@@ -619,7 +623,7 @@ infixl 5 _<*>_
 _<*>_ : Term Γ (□ (σ ⇒ τ)) → Term Γ (□ σ) → Term Γ (□ τ)
 f <*> x = ap′ f ∙′ x
 
--- Term equivalence up to Applicative laws
+-- Term equivalence up to Applicative laws.  Type heterogeneous??
 infix 4 _≈_
 data _≈_ : Term Γ τ → Term Γ τ → Set₁ where
 
@@ -654,10 +658,12 @@ data _≈_ : Term Γ τ → Term Γ τ → Set₁ where
 -- For any given raw term r, any two typing derivations for r with
 -- subtyping will elaborate to equivalent terms.
 
-coherence : (s t : Γ ⊢<: r ∈ τ) → elaborate s ≈ elaborate t
-coherence (sub σ<:τ s) t = {!!}
-coherence (var x) t = {!t!}
-coherence (ƛ s) (sub x t) = {!!}
-coherence (ƛ s) (ƛ t) = ≈cong ƛ′ (coherence s t)
-coherence (s₁ ∙ s₂) (sub x t) = {!!}
-coherence (s₁ ∙ s₂) (t₁ ∙ t₂) = {!!}
+-- coherence : (s t : Γ ⊢ₛ r ∈ τ) → elaborate s ≈ elaborate t
+-- coherence (sub σ<:τ s) t = {!!}
+-- coherence (var x) t = {!!}
+-- coherence (ƛ s) (sub x t) = {!!}
+-- coherence (ƛ s) (ƛ t) = ≈cong ƛ′ (coherence s t)
+-- coherence (s₁ ∙ s₂) (sub x t) = {!!}
+-- -- Note, in this last case s₂ and t₂ might not be the same type!  So
+-- -- the IH does not apply to them.  Can we generalize?
+-- coherence (s₁ ∙ s₂) (t₁ ∙ t₂) = ≈cong₂ {!_∙′_!} {!!} {!!}
