@@ -484,9 +484,24 @@ var2fin-wkv (vs x) (vs y) = cong Fin.suc (var2fin-wkv x y)
 -- Typing judgments for raw terms in system with subtyping
 data _⊢ₛ_∈_ : Ctx n → Raw n → Ty b → Set₁ where
   sub : σ <: τ → Γ ⊢ₛ r ∈ σ → Γ ⊢ₛ r ∈ τ
-  var : (x : Var Γ τ) → Γ ⊢ₛ var (var2fin x) ∈ τ
+  var : ∀ {i} → (x : Var Γ τ) → (i ≡ var2fin x) → Γ ⊢ₛ var i ∈ τ
   ƛ : (Γ , σ) ⊢ₛ r ∈ τ → Γ ⊢ₛ ƛ r ∈ (σ ⇒ τ)
   _∙_ : Γ ⊢ₛ r₁ ∈ (σ ⇒ τ) → Γ ⊢ₛ r₂ ∈ σ → Γ ⊢ₛ r₁ ∙ r₂ ∈ τ
+
+-- Can we use some kind of uniqueness lemma, that says two typing
+-- derivations for the same raw term have to result in (similar) types?
+--   - Surely doesn't have to be *the same* type due to subtyping
+--   - But can we say that one type must be a subtype of the other?
+--   - Maybe not; the same type can be subtype of two different types
+--     which are not comparable to each other.
+--   - But surely the types must have the same underlying shape.
+
+unique : Γ ⊢ₛ r ∈ σ₁ → Γ ⊢ₛ r ∈ σ₂ → ⌊ σ₁ ⌋ ≡ ⌊ σ₂ ⌋
+unique (sub σ<:σ₁ s) t = trans (sym (<:→⌊⌋ σ<:σ₁)) (unique s t)
+unique s (sub σ<:σ₂ t) = trans (unique s t) (<:→⌊⌋ σ<:σ₂)
+unique (var x i) (var y j) = {!!}  -- prove x = y
+unique (ƛ s) (ƛ t) = {!!}
+unique (s₁ ∙ s₂) (t₁ ∙ t₂) = {!!}
 
 -- XXX Perhaps make another version that only does subtyping in
 -- certain specific spots e.g. at function applications + variable
@@ -503,7 +518,7 @@ data _⊢ₛ′_∈_ : Ctx n → Raw n → Ty b → Set₁ where
 
 -- This direction is easy
 s′→s : Γ ⊢ₛ′ r ∈ τ → Γ ⊢ₛ r ∈ τ
-s′→s (var x σ<:τ) = sub σ<:τ (var x)
+s′→s (var x σ<:τ) = sub σ<:τ (var {!!} {!!})
 s′→s (ƛ d) = ƛ (s′→s d)
 s′→s (app d₁ d₂ s) = s′→s d₁ ∙ sub s (s′→s d₂)
 
@@ -521,14 +536,14 @@ help₃ σ₂◃σ₁ (app t₁ t₂ σ₄<:σ₃) = app (help₃ σ₂◃σ₁ 
 ◃-s′ σ◃τ (var x s) = var x (tr s (◃→<: σ◃τ))
 ◃-s′ rfl (ƛ t) = (ƛ t)
 ◃-s′ (arr τ₁◃σ₁ σ₂◃τ₂) (ƛ t) = ƛ (help₃ τ₁◃σ₁ (◃-s′ σ₂◃τ₂ t))
-◃-s′ (pure σ⇒τ₁◃τ) (ƛ t) = {!pure!}
+◃-s′ (pure σ⇒τ₁◃τ) (ƛ t) = {!!}
 ◃-s′ (ap□ σ◃τ σ◃τ₁) (ƛ t) = {!!}
 ◃-s′ σ◃τ (app t₁ t₂ s) = app (◃-s′ (arr rfl σ◃τ) t₁) t₂ s
 
 <:-s′ σ<:τ = ◃-s′ (<:→◃ σ<:τ)
 
 s→s′ (sub σ<:τ d) = <:-s′ σ<:τ (s→s′ d)
-s→s′ (var x) = var x rfl
+s→s′ (var x _) = {!!}
 s→s′ (ƛ d) = ƛ (s→s′ d)
 s→s′ (d₁ ∙ d₂) = app (s→s′ d₁) (s→s′ d₂) rfl
 
@@ -603,7 +618,7 @@ ap ≪ t = ap′ t
 -- Elaborate derivations with subtyping into subtyping-free terms with pure + ap
 elaborate : Γ ⊢ₛ r ∈ τ → Term Γ τ
 elaborate (sub σ<:τ t) = σ<:τ ≪ elaborate t
-elaborate (var x) = var′ x
+elaborate (var x eq) = var′ x
 elaborate (ƛ t) = ƛ′ (elaborate t)
 elaborate (t₁ ∙ t₂) = elaborate t₁ ∙′ elaborate t₂
 
@@ -658,7 +673,17 @@ data _≈_ : Term Γ τ → Term Γ τ → Set₁ where
 -- For any given raw term r, any two typing derivations for r with
 -- subtyping will elaborate to equivalent terms.
 
--- coherence : (s t : Γ ⊢ₛ r ∈ τ) → elaborate s ≈ elaborate t
+coherence : (s t : Γ ⊢ₛ r ∈ τ) → elaborate s ≈ elaborate t
+coherence {r = var x} (sub x₁ s) (sub x₂ t) = {!!}
+coherence {r = var x} (sub σ<:τ s) (var x₂ eq) = {!σ<:τ!}
+coherence {r = var x} (var x₁ eq) t = {!!}
+coherence {r = ƛ r} (sub x s) t = {!!}
+coherence {r = ƛ r} (ƛ s) (sub x t) = {!!}
+coherence {r = ƛ r} (ƛ s) (ƛ t) = ≈cong ƛ′ (coherence s t)
+coherence {r = r₁ ∙ r₂} (sub x s) t = {!!}
+coherence {r = r₁ ∙ r₂} (s₁ ∙ s₂) (sub x t) = {!!}
+coherence {r = r₁ ∙ r₂} (s₁ ∙ s₂) (t₁ ∙ t₂) = {!!}
+
 -- coherence (sub σ<:τ s) t = {!!}
 -- coherence (var x) t = {!!}
 -- coherence (ƛ s) (sub x t) = {!!}
