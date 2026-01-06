@@ -233,6 +233,50 @@ data _◃_ : Ty b₁ → Ty b₂ → Set where
 pureL : □ σ ◃ τ → σ ◃ τ
 pureL □σ◃τ = <:→◃ (tr pure (◃→<: □σ◃τ))
 
+--------------------------------------------------
+-- Diamond property for subtyping
+
+lemma : {σ : Ty ₀} {τ : Ty ₁} → σ ◃ τ → □ σ ◃ τ
+lemma (pure s) = box s
+lemma (ap□ s₁ s₂) = ap s₁ s₂
+
+diamond : σ ◃ τ → σ ◃ υ → Σ[ φ ∈ ΣTy ] ((τ ◃ proj₂ φ) × (υ ◃ proj₂ φ))
+diamond rfl σ◃υ = (_ , _) , σ◃υ , rfl
+diamond (pure σ◃τ) σ◃υ with diamond σ◃τ σ◃υ
+... | (₀ , φ) , τ◃φ , υ◃φ = (₁ , □ φ) , box τ◃φ , pure υ◃φ
+... | (₁ , φ) , τ◃φ , υ◃φ = (₁ , φ) , lemma τ◃φ , υ◃φ
+diamond (box σ◃τ) σ◃υ with diamond σ◃τ (pureL σ◃υ)
+... | (₀ , φ) , τ◃φ , υ◃φ = (₁ , □ φ) , box τ◃φ , pure υ◃φ
+... | (₁ , φ) , τ◃φ , υ◃φ = (₁ , φ) , lemma τ◃φ , υ◃φ
+diamond (arr τ₁◃σ₁ σ₂◃τ₂) σ₁⇒σ₂◃υ = {!!}
+diamond (ap σ◃τ σ◃τ₁) σ◃υ = {!!}
+diamond (ap□ σ◃τ σ◃τ₁) σ◃υ = {!!}
+
+-- diamond rfl σ<:υ = (_ , _) , σ<:υ , rfl
+-- diamond (tr σ<:τ₁ τ₁<:τ) σ<:υ with diamond σ<:τ₁ σ<:υ
+-- ... | φ₁ , τ₁<:φ₁ , υ<:φ₁ with diamond τ₁<:τ τ₁<:φ₁
+-- ... | φ , τ<:φ , φ₁<:φ = φ , τ<:φ , tr υ<:φ₁ φ₁<:φ
+-- diamond pure rfl = (₁ , □ _) , rfl , pure
+-- diamond pure (tr σ<:υ σ<:υ₁) = {!!}
+-- diamond pure (arr σ<:υ σ<:υ₁) = {!!}
+-- diamond pure pure = {!!}
+-- diamond (arr σ<:τ σ<:τ₁) σ<:υ = {!!}
+-- diamond (box σ<:τ) σ<:υ = {!!}
+-- diamond ap σ<:υ = {!!}
+-- diamond rfl σ<:υ = (_ , _) , σ<:υ , rfl
+-- diamond σ<:τ rfl = (_ , _) , rfl , σ<:τ
+-- diamond (tr σ<:τ₁ τ₁<:τ) σ<:υ with diamond σ<:τ₁ σ<:υ
+-- ... | φ₁ , τ₁<:φ₁ , υ<:φ₁ with diamond τ₁<:τ τ₁<:φ₁
+-- ... | φ , τ<:φ , φ₁<:φ = φ , τ<:φ , tr υ<:φ₁ φ₁<:φ
+-- diamond (arr σ<:τ σ<:τ₁) σ<:υ = {!!}
+-- diamond (box σ<:τ) σ<:υ = {!!}
+-- diamond pure (arr σ<:υ σ<:υ₁) = {!!}
+-- diamond pure pure = (₁ , □ _) , rfl , rfl
+-- diamond ap (box σ<:υ) = {!!}
+-- diamond ap ap = (₁ , □ (□ _ ⇒ □ _)) , pure , pure
+
+
+
 ------------------------------------------------------------
 -- Inversion/impossibility lemmas
 ------------------------------------------------------------
