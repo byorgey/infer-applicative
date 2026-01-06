@@ -481,6 +481,19 @@ var2fin-wkv vz y = refl
 var2fin-wkv (vs x) vz = refl
 var2fin-wkv (vs x) (vs y) = cong Fin.suc (var2fin-wkv x y)
 
+var2fin-inj₁ : {σ₁ : Ty b₁} {σ₂ : Ty b₂} → (x : Var Γ σ₁) → (y : Var Γ σ₂) → (var2fin x ≡ var2fin y) → Σ[ p ∈ b₁ ≡ b₂ ] _≡⟦_⟧_ {_} {Ty} σ₁ p σ₂
+var2fin-inj₁ vz vz _ = refl , refl
+var2fin-inj₁ (vs x) (vs y) eq = var2fin-inj₁ x y (suc-injective eq)
+
+var2fin-inj₂ : (x : Var Γ σ) → (y : Var Γ σ) → (var2fin x ≡ var2fin y) → (x ≡ y)
+var2fin-inj₂ vz vz _ = refl
+var2fin-inj₂ (vs x) (vs y) eq = cong vs (var2fin-inj₂ x y (suc-injective eq))
+
+-- Set₁ != Set
+-- var2fin-inj : (x : Var Γ σ₁) → (y : Var Γ σ₂) → (var2fin x ≡ var2fin y) → Σ[ p ∈ (σ₁ ≡ σ₂) ] (_≡⟦_⟧_ {_} {Var Γ} x p y)
+-- var2fin-inj x y eq = ?
+
+
 -- Typing judgments for raw terms in system with subtyping
 data _⊢ₛ_∈_ : Ctx n → Raw n → Ty b → Set₁ where
   sub : σ <: τ → Γ ⊢ₛ r ∈ σ → Γ ⊢ₛ r ∈ τ
@@ -499,9 +512,11 @@ data _⊢ₛ_∈_ : Ctx n → Raw n → Ty b → Set₁ where
 unique : Γ ⊢ₛ r ∈ σ₁ → Γ ⊢ₛ r ∈ σ₂ → ⌊ σ₁ ⌋ ≡ ⌊ σ₂ ⌋
 unique (sub σ<:σ₁ s) t = trans (sym (<:→⌊⌋ σ<:σ₁)) (unique s t)
 unique s (sub σ<:σ₂ t) = trans (unique s t) (<:→⌊⌋ σ<:σ₂)
-unique (var x i) (var y j) = {!!}  -- prove x = y
+unique (var x i) (var y j) with (var2fin-inj₁ x y (trans (sym i) j))
+... | refl , refl = refl
 unique (ƛ s) (ƛ t) = {!!}
-unique (s₁ ∙ s₂) (t₁ ∙ t₂) = {!!}
+unique (s₁ ∙ s₂) (t₁ ∙ t₂) with unique s₂ t₂
+... | ⌊σ⌋≡⌊σ₃⌋ = {!!}
 
 -- XXX Perhaps make another version that only does subtyping in
 -- certain specific spots e.g. at function applications + variable
