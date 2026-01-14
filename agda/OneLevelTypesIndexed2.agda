@@ -249,6 +249,8 @@ diamond (box σ◃τ) σ◃υ with diamond σ◃τ (pureL σ◃υ)
 ... | (₀ , φ) , τ◃φ , υ◃φ = (₁ , □ φ) , box τ◃φ , pure υ◃φ
 ... | (₁ , φ) , τ◃φ , υ◃φ = (₁ , φ) , lemma τ◃φ , υ◃φ
 diamond (arr τ₁◃σ₁ σ₂◃τ₂) σ₁⇒σ₂◃υ = {!!}
+  -- next step ^^^ : use ⇒◃₀-inv and ⇒◃₁-inv (move them above here)
+  -- to decompose υ?
 diamond (ap σ◃τ σ◃τ₁) σ◃υ = {!!}
 diamond (ap□ σ◃τ σ◃τ₁) σ◃υ = {!!}
 
@@ -316,6 +318,19 @@ B◃□-inv (ap□ t◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ⊥-elim (¬
 ⇒◃□-inv : σ₁ ⇒ σ₂ ◃ □ τ → σ₁ ⇒ σ₂ ◃ τ
 ⇒◃□-inv (pure s) = s
 ⇒◃□-inv (ap□ f g) = ap□ f (⇒◃□-inv g)
+
+-- If an arrow type is a subtype of a boxity-0 type, it must be an arrow type too.
+⇒◃₀-inv : {τ : Ty ₀} → σ₁ ⇒ σ₂ ◃ τ → Σ[ τ₁ ∈ ΣTy ] Σ[ τ₂ ∈ ΣTy ] (τ ≡ proj₂ τ₁ ⇒ proj₂ τ₂)
+⇒◃₀-inv rfl = (_ , _) , (_ , _) , refl
+⇒◃₀-inv (arr _ _) = (_ , _) , (_ , _) , refl
+⇒◃₀-inv (ap□ _ □σ₃⇒□σ₄◃τ) = ⇒◃₀-inv □σ₃⇒□σ₄◃τ
+
+-- If an arrow type is a subtype of a boxity-1 type, it must be a box
+-- applied to an arrow type.
+⇒◃₁-inv : {τ : Ty ₁} → σ₁ ⇒ σ₂ ◃ τ → Σ[ τ₁ ∈ ΣTy ] Σ[ τ₂ ∈ ΣTy ] (τ ≡ □ (proj₂ τ₁ ⇒ proj₂ τ₂))
+⇒◃₁-inv (pure σ₁⇒σ₂◃τ′) with ⇒◃₀-inv σ₁⇒σ₂◃τ′
+... | τ₁ , τ₂ , τ′≡τ₁⇒τ₂ = τ₁ , τ₂ , cong □_ τ′≡τ₁⇒τ₂
+⇒◃₁-inv (ap□ _ □σ₃⇒□σ₄◃τ) = ⇒◃₁-inv □σ₃⇒□σ₄◃τ
 
 -- This one is more difficult... but it would probably be super
 -- impossible with transitivity in the mix.
