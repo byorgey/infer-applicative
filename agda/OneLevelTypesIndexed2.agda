@@ -370,6 +370,8 @@ diamond {b} (arr τ₁◃σ₁ σ₂◃τ₂) σ₁⇒σ₂◃υ | ₀ | (_ , υ
 diamond {b} (arr τ₁◃σ₁ σ₂◃τ₂) σ₁⇒σ₂◃υ | ₁ = {!!}
   -- next step ^^^ : use ⇒◃₀-inv and ⇒◃₁-inv (move them above here)
   -- to decompose υ?
+  -- Look also at new lemmas ⇒-invˡ₀, ⇒-invˡ₁.  Can we make use of those?
+  -- Maybe we can compose those together into a more general/useful lemma?
 diamond (ap σ◃τ σ◃τ₁) σ◃υ = {!!}
 diamond (ap□ σ◃τ σ◃τ₁) σ◃υ = {!!}
 
