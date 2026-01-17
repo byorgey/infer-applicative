@@ -379,10 +379,15 @@ lub {b} (arr {_} {_} {₁} {σ₁} τ₁◃σ₁ σ₂◃τ₂) σ₁⇒σ₂◃
 lub {b} (arr {_} {_} {₁} {σ₁} τ₁◃σ₁ σ₂◃τ₂) σ₁⇒σ₂◃υ | ₀ | (_ , υ₁) , (_ , υ₂) , refl | υ₁◃σ₁ | σ₂◃υ₂ | φ₂ , τ₂◃φ₂ , υ₂◃φ₂ | φ₁ , φ₁◃τ₁ , φ₁◃υ₁ = (φ₁ Σ⇒ φ₂) , arr φ₁◃τ₁ τ₂◃φ₂ , arr φ₁◃υ₁ υ₂◃φ₂
 lub {b} {υ = □ υ} (arr τ₁◃σ₁ σ₂◃τ₂) σ₁⇒σ₂◃□υ | ₁ with ⇒◃₁-inv σ₁⇒σ₂◃□υ
 lub {b} {_} {_} {_} {_} {□ υ} (arr τ₁◃σ₁ σ₂◃τ₂) σ₁⇒σ₂◃□υ | ₁ | υ₁ , υ₂ , refl = {!!}
-lub (ap σ◃τ σ◃τ₁) σ◃υ = {!!}
+lub (ap σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃τ) □σ◃υ = {!!}
 lub (ap□ σ◃τ σ◃τ₁) σ◃υ = {!!}
 
-glb τ◃σ υ◃σ = {!!}
+glb rfl υ◃σ = (_ , _) , υ◃σ , rfl
+glb (pure τ◃σ) υ◃□σ = {!!}
+glb (box σ◃τ) υ◃□τ = {!!}
+glb (arr τ◃σ τ◃σ₁) υ◃σ = {!!}
+glb (ap τ◃σ τ◃σ₁) υ◃σ = {!!}
+glb (ap□ τ◃σ τ◃σ₁) υ◃σ = {!!}
 
 ------------------------------------------------------------
 -- Lemma: ¬A × ¬B → ¬ (A ⊎ B
@@ -553,6 +558,8 @@ data _⊢ₛ_∈_ : Ctx n → Raw n → Ty b → Set₁ where
 --   - Maybe not; the same type can be subtype of two different types
 --     which are not comparable to each other.
 --   - But surely the types must have the same underlying shape.
+--   - Does it matter that the contexts are the same??  We seem to need some wiggle room
+--     e.g. in the ƛ case, where the resulting contexts might be different...
 
 unique : Γ ⊢ₛ r ∈ σ₁ → Γ ⊢ₛ r ∈ σ₂ → ⌊ σ₁ ⌋ ≡ ⌊ σ₂ ⌋
 unique (sub σ<:σ₁ s) t = trans (sym (<:→⌊⌋ σ<:σ₁)) (unique s t)
@@ -578,7 +585,7 @@ data _⊢ₛ′_∈_ : Ctx n → Raw n → Ty b → Set₁ where
 
 -- This direction is easy
 s′→s : Γ ⊢ₛ′ r ∈ τ → Γ ⊢ₛ r ∈ τ
-s′→s (var x σ<:τ) = sub σ<:τ (var {!!} {!!})
+s′→s (var x σ<:τ) = sub σ<:τ (var x refl)
 s′→s (ƛ d) = ƛ (s′→s d)
 s′→s (app d₁ d₂ s) = s′→s d₁ ∙ sub s (s′→s d₂)
 
