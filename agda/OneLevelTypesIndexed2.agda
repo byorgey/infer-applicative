@@ -275,13 +275,20 @@ B◃□-inv : base B ◃ □ τ → base B ◃ τ
 B◃□-inv (pure t◃□τ) = t◃□τ
 B◃□-inv (ap□ t◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ⊥-elim (¬B◃⇒ t◃σ₁⇒σ₂)
 
--- This inversion lemma is easy, because we don't have to worry
--- about transitivity! yippee!
-⇒◃□-inv : σ₁ ⇒ σ₂ ◃ □ τ → σ₁ ⇒ σ₂ ◃ τ
-⇒◃□-inv (pure s) = s
-⇒◃□-inv (ap□ f g) = ap□ f (⇒◃□-inv g)
+-- If a type with no outermost box is a subtype of a type with an
+-- outermost box, we can remove the box. This inversion lemma is easy,
+-- because we don't have to worry about transitivity! yippee!
+--
+-- Note that this includes as a special case when the LHS is an arrow
+-- type.
+--
+-- Note we need {σ : Ty ₀} explicitly since this is not true without
+-- the restriction on σ.
+unbox : {σ : Ty ₀} → σ ◃ □ τ → σ ◃ τ
+unbox (pure σ◃τ) = σ◃τ
+unbox (ap□ σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ap□ σ◃σ₁⇒σ₂ (unbox □σ₁⇒□σ₂◃□τ)
 
--- If an arrow type is a subtype of a boxity-0 type, it must be an arrow type too.
+-- If an arrow type is a subtype of a boxity-0 type, the RHS must be an arrow type too.
 ⇒◃₀-inv : {τ : Ty ₀} → σ₁ ⇒ σ₂ ◃ τ → Σ[ τ₁ ∈ ΣTy ] Σ[ τ₂ ∈ ΣTy ] (τ ≡ proj₂ τ₁ ⇒ proj₂ τ₂)
 ⇒◃₀-inv rfl = (_ , _) , (_ , _) , refl
 ⇒◃₀-inv (arr _ _) = (_ , _) , (_ , _) , refl
@@ -296,27 +303,18 @@ B◃□-inv (ap□ t◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ⊥-elim (¬
 
 -- This one is more difficult... but it would probably be super
 -- impossible with transitivity in the mix.
-
+--
 -- This says when checking subtyping it is always OK to cancel boxes
 -- from both sides.  Put another way, any proof of □ σ ◃ □ τ can be
--- rewritten to have 'box' as its outermost constructor. Put yet
--- another way, any term of type □ σ → □ τ can be rewritten to have
--- 'fmap' as its outermost function call.
+-- rewritten into an equivalent proof with 'box' as its outermost
+-- constructor. Put yet another way, any term of type □ σ → □ τ can be
+-- rewritten to have 'fmap' as its outermost function call. ???
 □-inv : □ σ ◃ □ τ → σ ◃ τ
 □-inv rfl = rfl
 □-inv (box p) = p
 □-inv (pure p) = pureL p
-□-inv (ap f g) = ◃-trans (ap□ f rfl) (⇒◃□-inv g)
-□-inv (ap□ f g) = pureL (◃-trans (ap□ f rfl) (⇒◃□-inv g))
-
--- If a type with no outermost box is a subtype of a type with an
--- outermost box, we can remove the box.
---
--- Note we need {σ : Ty ₀} explicitly since this is not true without
--- the restriction on σ.
-unbox : {σ : Ty ₀} → σ ◃ □ τ → σ ◃ τ
-unbox (pure σ◃τ) = σ◃τ
-unbox (ap□ σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ap□ σ◃σ₁⇒σ₂ (unbox □σ₁⇒□σ₂◃□τ)
+□-inv (ap f g) = ◃-trans (ap□ f rfl) (unbox g)
+□-inv (ap□ f g) = pureL (◃-trans (ap□ f rfl) (unbox g))
 
 ------------------------------------------------------------
 -- Inversion lemmas for arrow types
@@ -359,6 +357,8 @@ unbox (ap□ σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃□τ) = ap□ σ◃σ₁�
 ₀◃₁ (pure s) = box s
 ₀◃₁ (ap□ s₁ s₂) = ap s₁ s₂
 
+-- There has to be an easier way to prove this...
+
 lub : {υ : Ty b} → σ ◃ τ → σ ◃ υ → Σ[ φ ∈ ΣTy ] ((τ ◃ proj₂ φ) × (υ ◃ proj₂ φ))
 glb : {υ : Ty b} → τ ◃ σ → υ ◃ σ → Σ[ φ ∈ ΣTy ] ((proj₂ φ ◃ τ) × (proj₂ φ ◃ υ))
 
@@ -378,7 +378,7 @@ lub {b} (arr {_} {_} {₁} {σ₁} τ₁◃σ₁ σ₂◃τ₂) σ₁⇒σ₂◃
 lub {b} (arr {_} {_} {₁} {σ₁} τ₁◃σ₁ σ₂◃τ₂) σ₁⇒σ₂◃υ | ₀ | (_ , υ₁) , (_ , υ₂) , refl | υ₁◃σ₁ | σ₂◃υ₂ with lub σ₂◃τ₂ σ₂◃υ₂ | glb τ₁◃σ₁ υ₁◃σ₁
 lub {b} (arr {_} {_} {₁} {σ₁} τ₁◃σ₁ σ₂◃τ₂) σ₁⇒σ₂◃υ | ₀ | (_ , υ₁) , (_ , υ₂) , refl | υ₁◃σ₁ | σ₂◃υ₂ | φ₂ , τ₂◃φ₂ , υ₂◃φ₂ | φ₁ , φ₁◃τ₁ , φ₁◃υ₁ = (φ₁ Σ⇒ φ₂) , arr φ₁◃τ₁ τ₂◃φ₂ , arr φ₁◃υ₁ υ₂◃φ₂
 lub {b} {υ = □ υ} (arr τ₁◃σ₁ σ₂◃τ₂) σ₁⇒σ₂◃□υ | ₁ with ⇒◃₁-inv σ₁⇒σ₂◃□υ
-lub {b} {_} {_} {_} {_} {□ υ} (arr τ₁◃σ₁ σ₂◃τ₂) σ₁⇒σ₂◃□υ | ₁ | υ₁ , υ₂ , refl = {!!}
+lub {b} {_} {_} {_} {_} {□ υ} (arr τ₁◃σ₁ σ₂◃τ₂) σ₁⇒σ₂◃□υ | ₁ | υ₁ , υ₂ , refl = {!!} 
 lub (ap σ◃σ₁⇒σ₂ □σ₁⇒□σ₂◃τ) □σ◃υ = {!!}
 lub (ap□ σ◃τ σ◃τ₁) σ◃υ = {!!}
 
@@ -423,7 +423,7 @@ lem₁ (¬P , ¬Q) (inj₂ Q) = ¬Q Q
 ... | no ¬b◃τ = no (contraposition B◃□-inv ¬b◃τ)
 ... | yes b◃τ = yes (pure b◃τ)
 ◃-Dec (σ₁ ⇒ σ₂) (□ τ) with ◃-Dec (σ₁ ⇒ σ₂) τ  -- Just use pure for box on RHS
-... | no ¬σ₁⇒σ₂◃τ = no (contraposition ⇒◃□-inv ¬σ₁⇒σ₂◃τ)
+... | no ¬σ₁⇒σ₂◃τ = no (contraposition unbox ¬σ₁⇒σ₂◃τ)
 ... | yes σ₁⇒σ₂◃τ = yes (pure σ₁⇒σ₂◃τ)
 
 -- And now for the interesting cases, which of course involve
