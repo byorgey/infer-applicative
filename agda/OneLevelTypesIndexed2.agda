@@ -401,80 +401,119 @@ lem₁ (¬P , ¬Q) (inj₂ Q) = ¬Q Q
 -- Subtyping is decidable
 ------------------------------------------------------------
 
-◃-Dec : Decidable (_◃_ {b₁} {b₂})
+₁◃₁-Dec : Decidable (_◃_ {₁} {₁})
+₀◃₀-Dec : Decidable (_◃_ {₀} {₀})
+₀◃₁-Dec : Decidable (_◃_ {₀} {₁})
+₁◃₀-Dec : Decidable (_◃_ {₁} {₀})
 
--- First, some impossible cases.
-◃-Dec (base _) (_ ⇒ _) = no ¬B◃⇒
-◃-Dec (_ ⇒ _) (base _) = no ¬⇒◃B
-◃-Dec (□ _) (base _) = no ¬□◃B
+------------------------------------------------------------
+-- 1 ◃ 1
+------------------------------------------------------------
 
--- There's no subtyping among base types, so just check for equality.
-◃-Dec (base B₁) (base B₂) with B₁ ≟B B₂
-... | no t₁≢t₂ = no (contraposition (base-inj ∘ ◃B-inv₀) t₁≢t₂)
-... | yes t₁≡t₂ rewrite t₁≡t₂ = yes rfl
-
--- If there's a box on both sides, it's always OK to cancel them.
-◃-Dec (□ σ) (□ τ) with ◃-Dec σ τ
+-- The (1 ◃ 1) case is easy: the □-inv lemma says we can always strip
+-- off a box from both sides.
+₁◃₁-Dec (□ σ) (□ τ) with ₀◃₀-Dec σ τ
 ... | no ¬σ◃τ = no (contraposition □-inv ¬σ◃τ)
 ... | yes σ◃τ = yes (box σ◃τ)
 
--- If there's a box only on the right, we can just use 'pure'.
-◃-Dec (base b) (□ τ) with ◃-Dec (base b) τ
-... | no ¬b◃τ = no (contraposition B◃□-inv ¬b◃τ)
-... | yes b◃τ = yes (pure b◃τ)
-◃-Dec (σ₁ ⇒ σ₂) (□ τ) with ◃-Dec (σ₁ ⇒ σ₂) τ  -- Just use pure for box on RHS
-... | no ¬σ₁⇒σ₂◃τ = no (contraposition unbox ¬σ₁⇒σ₂◃τ)
-... | yes σ₁⇒σ₂◃τ = yes (pure σ₁⇒σ₂◃τ)
+------------------------------------------------------------
+-- 0 ◃ 1
+------------------------------------------------------------
 
--- And now for the interesting cases, which of course involve
--- function types.
+-- The (0 ◃ 1) case is also easy, because of unbox lemma: we can
+-- always remove a box on the RHS.
+₀◃₁-Dec σ (□ τ) with ₀◃₀-Dec σ τ
+... | no ¬σ◃τ = no (contraposition unbox ¬σ◃τ)
+... | yes σ◃τ = yes (pure σ◃τ)
 
--- If a box type is a subtype of a function type, the type inside the
--- box can't be a base type...
-◃-Dec (□ base _) (_ ⇒ _) = no ¬□B◃⇒
+------------------------------------------------------------
+-- 0 ◃ 0
+------------------------------------------------------------
 
--- ...in fact, it must be a function type itself.  The only way to get
--- this case is to first push the box down, i.e. the outermost
--- constructor of any proof must be ap or ap□.
---
--- However, we have to figure out σ₁ and σ₂.  They must be related to
--- whatever is on the LHS and RHS of σ (which must have a ⇒ shape),
--- but potentially with boxes pushed around.
+-- First, some easy impossible cases: no base type is a subtype of an
+-- arrow type, or vice versa.
+₀◃₀-Dec (base _) (_ ⇒ _) = no ¬B◃⇒
+₀◃₀-Dec (_ ⇒ _) (base _) = no ¬⇒◃B
 
--- Only rules we could possibly use here are ap or ap□.
---
---   To use ap, we must show
---     - (σ₁ ⇒ σ₂) ◃ x ⇒ y
---     - □ x ⇒ □ y ◃ τ₁ ⇒ τ₂
---   To use ap□, we must show
---     - □ (σ₁ ⇒ σ₂) ◃ x ⇒ y
---     - □ x ⇒ □ y ◃ τ₁ ⇒ τ₂
---
---   What can we say about the boxity of various things here?
---   I want to say σ₁ must have boxity 0...
---
---   Note we must have  □ σ₂ ◃ τ₂ ?
---
-◃-Dec (□ (σ₁ ⇒ σ₂)) (τ₁ ⇒ τ₂) = {!!}
+-- There's no subtyping among base types, so just check for equality.
+₀◃₀-Dec (base B₁) (base B₂) with B₁ ≟B B₂
+... | no t₁≢t₂ = no (contraposition (base-inj ∘ ◃B-inv₀) t₁≢t₂)
+... | yes t₁≡t₂ rewrite t₁≡t₂ = yes rfl
 
--- Finally, the case for two function types.  We might be tempted here
--- to just check whether τ₁ ◃ σ₁ and σ₂ ◃ τ₂, and then use the 'arr'
--- rule.  However, that would not be complete; we might have to do an
--- ap□ first.  For example, (A → B) ◃ (□A → □B) (via pure + ap), but
--- □A ◃ A does not hold.
+₀◃₀-Dec (σ ⇒ σ₁) (τ ⇒ τ₁) = {!!}
 
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) with case-□ σ₁
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl with ◃-Dec σ₂ τ₂ | ◃-Dec τ₁ σ₁ | ◃-Dec τ₁ (□ σ₁)
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | no ¬σ₂◃τ₂ | _ | _ = no (contraposition ⇒-invʳ ¬σ₂◃τ₂)
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | yes σ₂◃τ₂ | yes τ₁◃σ₁ | _ = yes (arr τ₁◃σ₁ σ₂◃τ₂)
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | yes σ₂◃τ₂ | no ¬τ₁◃σ₁ | yes τ₁◃□σ₁ with case-□ σ₂
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | yes σ₂◃τ₂ | no ¬τ₁◃σ₁ | yes τ₁◃□σ₁ | inj₁ refl = {!!}
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | yes σ₂◃τ₂ | no ¬τ₁◃σ₁ | yes τ₁◃□σ₁ | inj₂ refl = {!!}
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | yes σ₂◃τ₂ | no ¬τ₁◃σ₁ | no ¬τ₁◃□σ₁ = no (contraposition ⇒-invˡ₀ ¬τ₁◃□σ₁)
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl with ◃-Dec σ₂ τ₂ | ◃-Dec τ₁ σ₁
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl | no ¬σ₂◃τ₂ | _ = no (contraposition ⇒-invʳ ¬σ₂◃τ₂)
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl | yes σ₂◃τ₂ | yes τ₁◃σ₁ = yes (arr τ₁◃σ₁ σ₂◃τ₂)
-◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl | yes σ₂◃τ₂ | no ¬τ₁◃σ₁ = no (contraposition ⇒-invˡ₁ ¬τ₁◃σ₁)
+------------------------------------------------------------
+-- 1 ◃ 0
+------------------------------------------------------------
+
+-- No box type is a subtype of a base type.
+₁◃₀-Dec (□ _) (base _) = no ¬□◃B
+
+₁◃₀-Dec (□ σ) (τ ⇒ τ₁) = {!!}
+
+------------------------------------------------------------
+
+-- Finally, the overall decidability lemma can be proven by casing on
+-- the boxity of the arguments and calling out to the appropriate
+-- case.
+◃-Dec : Decidable (_◃_ {b₁} {b₂})
+◃-Dec σ τ with case-□ σ | case-□ τ
+... | inj₁ refl | inj₁ refl = ₀◃₀-Dec σ τ
+... | inj₁ refl | inj₂ refl = ₀◃₁-Dec σ τ
+... | inj₂ refl | inj₁ refl = ₁◃₀-Dec σ τ
+... | inj₂ refl | inj₂ refl = ₁◃₁-Dec σ τ
+
+------------------------------------------------------------
+
+-- -- And now for the interesting cases, which of course involve
+-- -- function types.
+
+-- -- If a box type is a subtype of a function type, the type inside the
+-- -- box can't be a base type...
+-- ◃-Dec (□ base _) (_ ⇒ _) = no ¬□B◃⇒
+
+-- -- ...in fact, it must be a function type itself.  The only way to get
+-- -- this case is to first push the box down, i.e. the outermost
+-- -- constructor of any proof must be ap or ap□.
+-- --
+-- -- However, we have to figure out σ₁ and σ₂.  They must be related to
+-- -- whatever is on the LHS and RHS of σ (which must have a ⇒ shape),
+-- -- but potentially with boxes pushed around.
+
+-- -- Only rules we could possibly use here are ap or ap□.
+-- --
+-- --   To use ap, we must show
+-- --     - (σ₁ ⇒ σ₂) ◃ x ⇒ y
+-- --     - □ x ⇒ □ y ◃ τ₁ ⇒ τ₂
+-- --   To use ap□, we must show
+-- --     - □ (σ₁ ⇒ σ₂) ◃ x ⇒ y
+-- --     - □ x ⇒ □ y ◃ τ₁ ⇒ τ₂
+-- --
+-- --   What can we say about the boxity of various things here?
+-- --   I want to say σ₁ must have boxity 0...
+-- --
+-- --   Note we must have  □ σ₂ ◃ τ₂ ?
+-- --
+-- ◃-Dec (□ (σ₁ ⇒ σ₂)) (τ₁ ⇒ τ₂) = {!!}
+
+-- -- Finally, the case for two function types.  We might be tempted here
+-- -- to just check whether τ₁ ◃ σ₁ and σ₂ ◃ τ₂, and then use the 'arr'
+-- -- rule.  However, that would not be complete; we might have to do an
+-- -- ap□ first.  For example, (A → B) ◃ (□A → □B) (via pure + ap), but
+-- -- □A ◃ A does not hold.
+
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) with case-□ σ₁
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl with ◃-Dec σ₂ τ₂ | ◃-Dec τ₁ σ₁ | ◃-Dec τ₁ (□ σ₁)
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | no ¬σ₂◃τ₂ | _ | _ = no (contraposition ⇒-invʳ ¬σ₂◃τ₂)
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | yes σ₂◃τ₂ | yes τ₁◃σ₁ | _ = yes (arr τ₁◃σ₁ σ₂◃τ₂)
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | yes σ₂◃τ₂ | no ¬τ₁◃σ₁ | yes τ₁◃□σ₁ with case-□ σ₂
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | yes σ₂◃τ₂ | no ¬τ₁◃σ₁ | yes τ₁◃□σ₁ | inj₁ refl = {!!}
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | yes σ₂◃τ₂ | no ¬τ₁◃σ₁ | yes τ₁◃□σ₁ | inj₂ refl = {!!}
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₁ refl | yes σ₂◃τ₂ | no ¬τ₁◃σ₁ | no ¬τ₁◃□σ₁ = no (contraposition ⇒-invˡ₀ ¬τ₁◃□σ₁)
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl with ◃-Dec σ₂ τ₂ | ◃-Dec τ₁ σ₁
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl | no ¬σ₂◃τ₂ | _ = no (contraposition ⇒-invʳ ¬σ₂◃τ₂)
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl | yes σ₂◃τ₂ | yes τ₁◃σ₁ = yes (arr τ₁◃σ₁ σ₂◃τ₂)
+-- ◃-Dec (σ₁ ⇒ σ₂) (τ₁ ⇒ τ₂) | inj₂ refl | yes σ₂◃τ₂ | no ¬τ₁◃σ₁ = no (contraposition ⇒-invˡ₁ ¬τ₁◃σ₁)
 
 ------------------------------------------------------------
 -- Raw, untyped terms
